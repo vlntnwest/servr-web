@@ -20,7 +20,15 @@ function getTimeParts(timezone: string) {
   const map: Record<string, string> = {};
   for (const { type, value } of parts) map[type] = value;
 
-  const WEEKDAY: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const WEEKDAY: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
   return {
     todayStr: `${map.year}-${map.month}-${map.day}`,
     dayOfWeek: WEEKDAY[map.weekday],
@@ -33,7 +41,7 @@ function isOpen(
   exceptionalHours: ExceptionalHour[],
   timezone: string,
 ): boolean {
-  if (!openingHours || openingHours.length === 0) return true;
+  if (!openingHours || openingHours.length === 0) return false;
 
   const { todayStr, dayOfWeek, currentTime } = getTimeParts(timezone);
 
@@ -44,13 +52,18 @@ function isOpen(
   if (exceptional) {
     if (exceptional.isClosed) return false;
     if (exceptional.openTime && exceptional.closeTime) {
-      return currentTime >= exceptional.openTime && currentTime < exceptional.closeTime;
+      return (
+        currentTime >= exceptional.openTime &&
+        currentTime < exceptional.closeTime
+      );
     }
   }
 
   const dayRanges = openingHours.filter((h) => h.dayOfWeek === dayOfWeek);
   if (dayRanges.length === 0) return false;
-  return dayRanges.some((h) => currentTime >= h.openTime && currentTime < h.closeTime);
+  return dayRanges.some(
+    (h) => currentTime >= h.openTime && currentTime < h.closeTime,
+  );
 }
 
 interface OpenStatusBadgeProps {
@@ -64,7 +77,9 @@ export default function OpenStatusBadge({
   exceptionalHours,
   timezone,
 }: OpenStatusBadgeProps) {
-  const [open, setOpen] = useState(() => isOpen(openingHours, exceptionalHours, timezone));
+  const [open, setOpen] = useState(() =>
+    isOpen(openingHours, exceptionalHours, timezone),
+  );
 
   useEffect(() => {
     setOpen(isOpen(openingHours, exceptionalHours, timezone));

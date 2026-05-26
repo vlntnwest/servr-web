@@ -1,18 +1,35 @@
 "use client";
 
 import Image from "next/image";
-import type { OpeningHour, ExceptionalHour, PreparationLevel } from "@/types/api";
+import type {
+  OpeningHour,
+  ExceptionalHour,
+  PreparationLevel,
+} from "@/types/api";
 import { MapPin, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import OpenStatusBadge from "./open-status-badge";
 import { useRestaurant } from "@/contexts/restaurant-context";
 
-function getTodayHours(openingHours: OpeningHour[], timezone: string): string | null {
+function getTodayHours(
+  openingHours: OpeningHour[],
+  timezone: string,
+): string | null {
+  if (!openingHours || openingHours.length === 0) return null;
+
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     weekday: "short",
   }).formatToParts(new Date());
-  const WEEKDAY: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const WEEKDAY: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
   const dayOfWeek = WEEKDAY[parts.find((p) => p.type === "weekday")!.value];
   const ranges = openingHours
     .filter((h) => h.dayOfWeek === dayOfWeek)
@@ -21,21 +38,22 @@ function getTodayHours(openingHours: OpeningHour[], timezone: string): string | 
   return ranges.map((h) => `${h.openTime} - ${h.closeTime}`).join(" / ");
 }
 
-const PREP_BADGES: Record<PreparationLevel, { label: string; color: string }> = {
-  EASY: {
-    label: "~15 min",
-    color: "bg-brand-forest/10 text-brand-forest",
-  },
-  MEDIUM: {
-    label: "~25 min",
-    color: "bg-brand-yellow/20 text-[#7a5e08]",
-  },
-  BUSY: {
-    label: "~40 min",
-    color: "bg-brand-orange/15 text-brand-orange",
-  },
-  CLOSED: { label: "Fermé", color: "bg-destructive/10 text-destructive" },
-};
+const PREP_BADGES: Record<PreparationLevel, { label: string; color: string }> =
+  {
+    EASY: {
+      label: "~15 min",
+      color: "bg-brand-forest/10 text-brand-forest",
+    },
+    MEDIUM: {
+      label: "~25 min",
+      color: "bg-brand-yellow/20 text-[#7a5e08]",
+    },
+    BUSY: {
+      label: "~40 min",
+      color: "bg-brand-orange/15 text-brand-orange",
+    },
+    CLOSED: { label: "Fermé", color: "bg-destructive/10 text-destructive" },
+  };
 
 interface RestaurantHeaderProps {
   openingHours: OpeningHour[];

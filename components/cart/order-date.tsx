@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getOpeningHours } from "@/lib/api";
 import { useCart } from "@/contexts/cart-context";
 import { useOptionalRestaurant } from "@/contexts/restaurant-context";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -60,7 +59,7 @@ function formatSlotLabel(iso: string): string {
 }
 
 function isCurrentlyOpen(openingHours: OpeningHour[]): boolean {
-  if (!openingHours || openingHours.length === 0) return true;
+  if (!openingHours || openingHours.length === 0) return false;
   const now = new Date();
   const dayOfWeek = now.getDay();
   const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -74,15 +73,9 @@ function isCurrentlyOpen(openingHours: OpeningHour[]): boolean {
 export default function OrderDate() {
   const { scheduledFor, setScheduledFor } = useCart();
   const restaurantCtx = useOptionalRestaurant();
-  const [openingHours, setOpeningHours] = useState<OpeningHour[]>([]);
+  const openingHours = restaurantCtx?.openingHours ?? [];
   const [orderType, setOrderType] = useState<"asap" | "scheduled">("asap");
   const [selectedDay, setSelectedDay] = useState("");
-
-  useEffect(() => {
-    getOpeningHours(restaurantCtx?.restaurant.id)
-      .then(setOpeningHours)
-      .catch(() => {});
-  }, [restaurantCtx?.restaurant.id]);
 
   const asapAvailable = useMemo(() => {
     if (restaurantCtx?.restaurant.preparationLevel === "CLOSED") return false;
