@@ -103,14 +103,14 @@ export default function Cart({ onClose }: CartProps) {
         <Button
           className="w-full h-12 rounded-full bg-brand-orange hover:bg-brand-orange/90 text-body font-semibold tracking-cta text-brand-cream disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setCheckoutOpen(true)}
-          disabled={total < 1 || isClosed}
+          disabled={total < 1 || (isClosed && !scheduledFor)}
           variant="default"
         >
           Finaliser la commande
         </Button>
-        {isClosed && (
+        {isClosed && !scheduledFor && (
           <p className="text-center text-body-sm text-destructive mt-2">
-            Le restaurant est actuellement fermé
+            Le restaurant est actuellement fermé — choisissez « Prévu pour… »
           </p>
         )}
       </div>
