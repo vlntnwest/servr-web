@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getRestaurantBySlug } from "@/lib/api";
+import { getRestaurantBySlug, getOpeningHours, getExceptionalHours } from "@/lib/api";
 import { RestaurantProvider } from "@/contexts/restaurant-context";
 
 export default async function StoreLayout({
@@ -16,8 +16,13 @@ export default async function StoreLayout({
     notFound();
   }
 
+  const [openingHours, exceptionalHours] = await Promise.all([
+    getOpeningHours(restaurant.id),
+    getExceptionalHours(restaurant.id),
+  ]);
+
   return (
-    <RestaurantProvider restaurant={restaurant} slug={slug}>
+    <RestaurantProvider restaurant={restaurant} slug={slug} openingHours={openingHours} exceptionalHours={exceptionalHours}>
       {children}
     </RestaurantProvider>
   );

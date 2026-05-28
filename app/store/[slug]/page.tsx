@@ -3,7 +3,6 @@ import {
   getRestaurantBySlug,
   getMenuForRestaurant,
   getOpeningHours,
-  getExceptionalHours,
 } from "@/lib/api";
 import Header from "@/components/layout/header";
 import RestaurantHeader from "@/components/store/restaurant-header";
@@ -24,10 +23,9 @@ export default async function StorePage({
     notFound();
   }
 
-  const [categories, openingHours, exceptionalHours] = await Promise.all([
+  const [categories, openingHours] = await Promise.all([
     getMenuForRestaurant(restaurant.id),
     getOpeningHours(restaurant.id),
-    getExceptionalHours(restaurant.id),
   ]);
   const sorted = [...categories].sort(
     (a, b) => a.displayOrder - b.displayOrder,
@@ -36,10 +34,7 @@ export default async function StorePage({
   return (
     <>
       <Header />
-      <RestaurantHeader
-        openingHours={openingHours}
-        exceptionalHours={exceptionalHours}
-      />
+      <RestaurantHeader openingHours={openingHours} />
       <CategoryNav categories={sorted} />
       <main>
         <Suspense
