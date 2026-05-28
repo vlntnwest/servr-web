@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
         hostname: "g10afdaataaj4tkl.public.blob.vercel-storage.com",
       },
     ],
+    minimumCacheTTL: 2_592_000,
+    deviceSizes: [640, 828, 1080, 1920],
+    imageSizes: [64, 128, 256, 384],
+    formats: ["image/webp"],
   },
 };
 
