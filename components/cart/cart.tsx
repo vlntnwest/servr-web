@@ -24,8 +24,7 @@ interface CartProps {
 export default function Cart({ onClose }: CartProps) {
   const { items, total, scheduledFor, clearCart } = useCart();
   const restaurantCtx = useOptionalRestaurant();
-  const isClosed = restaurantCtx?.restaurant.preparationLevel === "CLOSED";
-  const hasNoHours = restaurantCtx ? restaurantCtx.openingHours.length === 0 : false;
+  const isClosed = restaurantCtx ? !restaurantCtx.restaurant.isOpen : false;
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
@@ -104,19 +103,14 @@ export default function Cart({ onClose }: CartProps) {
         <Button
           className="w-full h-12 rounded-full bg-brand-orange hover:bg-brand-orange/90 text-body font-semibold tracking-cta text-brand-cream disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => setCheckoutOpen(true)}
-          disabled={total < 1 || isClosed || hasNoHours}
+          disabled={total < 1 || (isClosed && !scheduledFor)}
           variant="default"
         >
           Finaliser la commande
         </Button>
-        {isClosed && (
+        {isClosed && !scheduledFor && (
           <p className="text-center text-body-sm text-destructive mt-2">
-            Le restaurant est actuellement fermé
-          </p>
-        )}
-        {hasNoHours && (
-          <p className="text-center text-body-sm text-destructive mt-2">
-            Les commandes ne sont pas disponibles pour le moment
+            Le restaurant est actuellement fermé — choisissez « Prévu pour… »
           </p>
         )}
       </div>

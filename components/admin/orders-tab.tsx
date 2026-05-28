@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { getOrders, updateOrderStatus, refundOrder, getRestaurant, updatePreparationLevel } from "@/lib/api";
+import { getOrders, updateOrderStatus, refundOrder, getRestaurant, updatePreparationLevel, updateOpenState } from "@/lib/api";
 import type { PreparationLevel } from "@/types/api";
 import type { Order, OrderProductOption } from "@/types/api";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,6 +54,7 @@ export default function OrdersTab() {
   const [refunding, setRefunding] = useState(false);
   const [statusChanging, setStatusChanging] = useState<string | null>(null); // orderId being changed
   const [prepLevel, setPrepLevel] = useState<PreparationLevel>("EASY");
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   const fetchActive = useCallback(async () => {
     const result = await getOrders(activePage, 20, ACTIVE_STATUSES);
@@ -80,6 +81,7 @@ export default function OrdersTab() {
     fetchAll();
     getRestaurant().then((r) => {
       if (r?.preparationLevel) setPrepLevel(r.preparationLevel);
+      if (r) setIsOpen(r.isOpen);
     });
   }, [fetchAll]);
 
@@ -130,7 +132,6 @@ export default function OrdersTab() {
     { key: "EASY", label: "Calme", color: "bg-brand-forest/15 text-brand-forest" },
     { key: "MEDIUM", label: "Modéré", color: "bg-brand-yellow/30 text-brand-ink" },
     { key: "BUSY", label: "Chargé", color: "bg-brand-orange/20 text-brand-orange" },
-    { key: "CLOSED", label: "Fermé", color: "bg-destructive/15 text-destructive" },
   ];
 
   const handlePrepLevelChange = async (level: PreparationLevel) => {
@@ -138,28 +139,69 @@ export default function OrdersTab() {
     await updatePreparationLevel(level);
   };
 
+  const handleOpenToggle = async (next: boolean) => {
+    const previous = isOpen;
+    setIsOpen(next);
+    const result = await updateOpenState(next);
+    if (result.error) setIsOpen(previous);
+  };
+
   return (
     <>
-    {/* Preparation level toggle */}
-    <div className="flex items-center gap-3 mb-4">
-      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        Affluence
-      </span>
-      <div className="flex gap-1 p-1 bg-muted rounded-lg">
-        {PREP_LEVELS.map(({ key, label, color }) => (
+    {/* Open/close toggle + Preparation level toggle */}
+    <div className="flex items-center gap-4 mb-4 flex-wrap">
+      {/* Ouvert/Fermé toggle */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Statut
+        </span>
+        <div className="flex gap-1 p-1 bg-muted rounded-lg">
           <button
-            key={key}
-            onClick={() => handlePrepLevelChange(key)}
+            onClick={() => handleOpenToggle(true)}
             className={cn(
               "px-3 py-1 rounded-md text-xs font-medium transition-all",
-              prepLevel === key
-                ? `${color} shadow-sm`
+              isOpen
+                ? "bg-brand-forest/15 text-brand-forest shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {label}
+            Ouvert
           </button>
-        ))}
+          <button
+            onClick={() => handleOpenToggle(false)}
+            className={cn(
+              "px-3 py-1 rounded-md text-xs font-medium transition-all",
+              !isOpen
+                ? "bg-destructive/15 text-destructive shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Fermé
+          </button>
+        </div>
+      </div>
+
+      {/* Affluence / prep speed selector */}
+      <div className={cn("flex items-center gap-2", !isOpen && "opacity-40 pointer-events-none")}>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Affluence
+        </span>
+        <div className="flex gap-1 p-1 bg-muted rounded-lg">
+          {PREP_LEVELS.map(({ key, label, color }) => (
+            <button
+              key={key}
+              onClick={() => handlePrepLevelChange(key)}
+              className={cn(
+                "px-3 py-1 rounded-md text-xs font-medium transition-all",
+                prepLevel === key
+                  ? `${color} shadow-sm`
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
 

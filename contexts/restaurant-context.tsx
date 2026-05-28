@@ -1,12 +1,13 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import type { Restaurant, OpeningHour } from "@/types/api";
+import type { Restaurant, OpeningHour, ExceptionalHour } from "@/types/api";
 
 type RestaurantContextType = {
   restaurant: Restaurant;
   slug: string;
   openingHours: OpeningHour[];
+  exceptionalHours: ExceptionalHour[];
   updateRestaurant: (r: Restaurant) => void;
 };
 
@@ -16,17 +17,19 @@ export function RestaurantProvider({
   restaurant: initialRestaurant,
   slug,
   openingHours,
+  exceptionalHours,
   children,
 }: {
   restaurant: Restaurant;
   slug: string;
   openingHours: OpeningHour[];
+  exceptionalHours: ExceptionalHour[];
   children: ReactNode;
 }) {
   const [restaurant, setRestaurant] = useState(initialRestaurant);
 
   return (
-    <RestaurantContext.Provider value={{ restaurant, slug, openingHours, updateRestaurant: setRestaurant }}>
+    <RestaurantContext.Provider value={{ restaurant, slug, openingHours, exceptionalHours, updateRestaurant: setRestaurant }}>
       {children}
     </RestaurantContext.Provider>
   );

@@ -596,11 +596,31 @@ export async function reorderProductOptionGroups(
 }
 
 export async function updatePreparationLevel(
-  level: "EASY" | "MEDIUM" | "BUSY" | "CLOSED",
+  level: "EASY" | "MEDIUM" | "BUSY",
 ): Promise<{ error?: string }> {
   const result = await apiFetch<Restaurant>(
     `/restaurants/${RESTAURANT_ID}/preparation-level`,
     { method: "PATCH", body: JSON.stringify({ preparationLevel: level }) },
+  );
+  return "error" in result ? { error: result.error } : {};
+}
+
+export async function updateOpenState(
+  isOpen: boolean,
+): Promise<{ error?: string }> {
+  const result = await apiFetch<Restaurant>(
+    `/restaurants/${RESTAURANT_ID}/open-state`,
+    { method: "PATCH", body: JSON.stringify({ isOpen }) },
+  );
+  return "error" in result ? { error: result.error } : {};
+}
+
+export async function updateOpeningSettings(
+  settings: { autoOpen?: boolean; isReady?: boolean },
+): Promise<{ error?: string }> {
+  const result = await apiFetch<Restaurant>(
+    `/restaurants/${RESTAURANT_ID}/opening-settings`,
+    { method: "PATCH", body: JSON.stringify(settings) },
   );
   return "error" in result ? { error: result.error } : {};
 }
