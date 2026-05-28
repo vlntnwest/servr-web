@@ -105,8 +105,8 @@ export default function CheckoutModal({
       if (restaurantCtx?.restaurant.id) {
         const fresh = await getRestaurantLive(restaurantCtx.restaurant.id);
         if (fresh) restaurantCtx.updateRestaurant(fresh);
-        const prepLevel = fresh?.preparationLevel ?? restaurantCtx.restaurant.preparationLevel;
-        if (prepLevel === "CLOSED") {
+        const isOpen = fresh?.isOpen ?? restaurantCtx.restaurant.isOpen;
+        if (!isOpen && !initialScheduledFor) {
           setError("Le restaurant est actuellement fermé.");
           setLoading(false);
           return;

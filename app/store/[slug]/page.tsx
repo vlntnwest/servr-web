@@ -38,7 +38,6 @@ export default async function StorePage({
       <Header />
       <RestaurantHeader
         openingHours={openingHours}
-        exceptionalHours={exceptionalHours}
       />
       <CategoryNav categories={sorted} />
       <main>

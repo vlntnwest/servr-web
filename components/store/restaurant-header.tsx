@@ -3,7 +3,6 @@
 import Image from "next/image";
 import type {
   OpeningHour,
-  ExceptionalHour,
   PreparationLevel,
 } from "@/types/api";
 import { MapPin, Clock } from "lucide-react";
@@ -52,17 +51,14 @@ const PREP_BADGES: Record<PreparationLevel, { label: string; color: string }> =
       label: "~40 min",
       color: "bg-brand-orange/15 text-brand-orange",
     },
-    CLOSED: { label: "Fermé", color: "bg-destructive/10 text-destructive" },
   };
 
 interface RestaurantHeaderProps {
   openingHours: OpeningHour[];
-  exceptionalHours: ExceptionalHour[];
 }
 
 export default function RestaurantHeader({
   openingHours,
-  exceptionalHours,
 }: RestaurantHeaderProps) {
   const { restaurant } = useRestaurant();
   const todayHours = getTodayHours(openingHours, restaurant.timezone);
@@ -107,14 +103,8 @@ export default function RestaurantHeader({
           )}
 
           <div className="flex flex-wrap items-center gap-2 mt-4">
-            {restaurant.preparationLevel !== "CLOSED" && (
-              <OpenStatusBadge
-                openingHours={openingHours}
-                exceptionalHours={exceptionalHours}
-                timezone={restaurant.timezone}
-              />
-            )}
-            {prepBadge && restaurant.preparationLevel !== "EASY" && (
+            <OpenStatusBadge isOpen={restaurant.isOpen} />
+            {prepBadge && restaurant.isOpen && restaurant.preparationLevel !== "EASY" && (
               <span
                 className={cn(
                   "text-caption px-3 py-1 rounded-full font-semibold tracking-pill",

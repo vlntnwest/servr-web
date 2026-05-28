@@ -55,7 +55,7 @@ export type Category = {
   productCategories: ProductCategory[];
 };
 
-export type PreparationLevel = "EASY" | "MEDIUM" | "BUSY" | "CLOSED";
+export type PreparationLevel = "EASY" | "MEDIUM" | "BUSY";
 
 export type Restaurant = {
   id: string;
@@ -69,6 +69,9 @@ export type Restaurant = {
   imageUrl: string | null;
   stripeAccountId: string | null;
   preparationLevel: PreparationLevel;
+  isOpen: boolean;
+  isReady: boolean;
+  autoOpen: boolean;
   timezone: string;
   createdAt: string;
   updatedAt: string;
