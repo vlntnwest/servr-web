@@ -13,6 +13,7 @@ import type {
   OptionGroup,
   OptionChoice,
   CheckoutItem,
+  BackOfficeRestaurant,
 } from "@/types/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -339,6 +340,7 @@ export async function createRestaurant(payload: {
   city: string;
   phone: string;
   email?: string;
+  onboardingToken?: string;
 }): Promise<{ data?: Restaurant; error?: string }> {
   const result = await apiFetch<Restaurant>("/restaurants/", {
     method: "POST",
@@ -662,4 +664,49 @@ export async function cleanupDraftOrders(): Promise<{
   if (!res.ok) return { error: "Erreur lors du nettoyage" };
   const json = await res.json();
   return { data: json.data };
+}
+
+// ── Back-office ───────────────────────────────────────────────────────────────
+
+export async function getRestaurants(): Promise<BackOfficeRestaurant[]> {
+  const result = await apiFetch<BackOfficeRestaurant[]>("/restaurants");
+  if ("data" in result) return result.data;
+  return [];
+}
+
+export async function inviteRestaurateur(email: string): Promise<{ error?: string }> {
+  const result = await apiFetch<{ message: string }>("/invites/restaurateur", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+  return "error" in result ? { error: result.error } : {};
+}
+
+export async function createStaff(
+  email: string,
+  role: "COMMERCIAL" | "SUPREME_LEADER",
+): Promise<{ data?: { id: string; role: string }; error?: string }> {
+  const result = await apiFetch<{ id: string; role: string }>("/staff", {
+    method: "POST",
+    body: JSON.stringify({ email, role }),
+  });
+  return "data" in result ? { data: result.data } : { error: result.error };
+}
+
+export async function assignCommercial(
+  restaurantId: string,
+  commercialId: string | null,
+): Promise<{ error?: string }> {
+  const result = await apiFetch<Restaurant>(`/restaurants/${restaurantId}/commercial`, {
+    method: "PATCH",
+    body: JSON.stringify({ commercialId }),
+  });
+  return "error" in result ? { error: result.error } : {};
+}
+
+export async function becomeRestaurateur(): Promise<{ error?: string }> {
+  const result = await apiFetch<{ id: string; role: string }>("/user/me/become-restaurateur", {
+    method: "POST",
+  });
+  return "error" in result ? { error: result.error } : {};
 }

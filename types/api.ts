@@ -57,6 +57,14 @@ export type Category = {
 
 export type PreparationLevel = "EASY" | "MEDIUM" | "BUSY";
 
+export type UserRole = "CUSTOMER" | "RESTAURATEUR" | "COMMERCIAL" | "SUPREME_LEADER";
+
+export type CustomerProfile = {
+  address: string | null;
+  city: string | null;
+  zipCode: string | null;
+};
+
 export type Restaurant = {
   id: string;
   name: string;
@@ -143,9 +151,12 @@ export type User = {
   email: string;
   fullName: string | null;
   phone: string | null;
+  role: UserRole;
   createdAt: string;
   updatedAt: string;
   restaurants: Restaurant[];
+  managedRestaurants: Restaurant[];
+  customerProfile?: CustomerProfile | null;
 };
 
 export type PromoCode = {
@@ -200,4 +211,15 @@ export type CheckoutItem = {
   productId: string;
   quantity: number;
   optionChoiceIds: string[];
+};
+
+// Renvoyé par GET /restaurants (listing back-office)
+export type BackOfficeRestaurant = {
+  id: string;
+  name: string;
+  slug: string | null;
+  city: string;
+  isOpen: boolean;
+  adminId: string;
+  commercialId: string | null;
 };
