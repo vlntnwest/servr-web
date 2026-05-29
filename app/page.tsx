@@ -29,9 +29,9 @@ const FEATURES = [
   },
   {
     icon: Users,
-    title: "Gestion d'équipe",
+    title: "Multi-restaurants",
     description:
-      "Invitez vos collaborateurs avec des rôles différents : propriétaire, admin ou staff.",
+      "Gérez plusieurs établissements depuis un seul compte, ou confiez la gestion à un commercial dédié.",
   },
   {
     icon: BarChart3,
