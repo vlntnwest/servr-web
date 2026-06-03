@@ -76,6 +76,7 @@ export default function RestaurantHeader({
               src={restaurant.imageUrl}
               alt={restaurant.name}
               fill
+              sizes="(max-width: 768px) 100vw, 30vw"
               className="object-cover"
               priority
             />
