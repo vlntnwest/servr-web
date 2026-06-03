@@ -77,7 +77,7 @@ export default function CustomerSheet() {
                     variant="outline"
                     className="w-full h-11 rounded-full border-brand-border text-destructive hover:bg-destructive/5 hover:border-destructive/40"
                     onClick={() => {
-                      supabase.auth.signOut();
+                      supabase.auth.signOut({ scope: "local" });
                       setOpen(false);
                     }}
                   >

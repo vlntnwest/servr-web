@@ -175,7 +175,7 @@ export default function AdminRestaurantPage({
           <button
             className="p-2 hover:bg-black/5 rounded-full transition-colors"
             onClick={() =>
-              supabase.auth.signOut().then(() => router.push("/login"))
+              supabase.auth.signOut({ scope: "local" }).then(() => router.push("/login"))
             }
             aria-label="Se déconnecter"
           >
