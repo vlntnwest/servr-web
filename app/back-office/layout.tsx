@@ -54,7 +54,7 @@ export default function BackOfficeLayout({ children }: { children: React.ReactNo
           <span className="ml-auto text-xs text-[#676767]">{role}</span>
           <button
             className="p-2 hover:bg-black/5 rounded-full"
-            onClick={() => supabase.auth.signOut().then(() => router.push("/login"))}
+            onClick={() => supabase.auth.signOut({ scope: "local" }).then(() => router.push("/login"))}
             aria-label="Se déconnecter"
           >
             <LogOut className="w-5 h-5 text-[#676767]" />
