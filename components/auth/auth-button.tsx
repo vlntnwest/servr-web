@@ -28,7 +28,7 @@ export default function AuthButton() {
     return (
       <button
         className="p-2 rounded-full hover:bg-black/5 transition-colors"
-        onClick={() => supabase.auth.signOut()}
+        onClick={() => supabase.auth.signOut({ scope: "local" })}
         aria-label="Se déconnecter"
       >
         <LogOut className="w-5 h-5 text-muted-foreground" />

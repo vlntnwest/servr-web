@@ -75,6 +75,9 @@ export default function CreateRestaurantPage() {
     }
 
     setLoading(true);
+    const onboardingToken = typeof window !== "undefined"
+      ? sessionStorage.getItem("onboardingToken") ?? undefined
+      : undefined;
     const result = await createRestaurant({
       name,
       address,
@@ -82,6 +85,7 @@ export default function CreateRestaurantPage() {
       city,
       phone,
       ...(email ? { email } : {}),
+      onboardingToken,
     });
     setLoading(false);
 
@@ -91,6 +95,7 @@ export default function CreateRestaurantPage() {
     }
 
     if (result.data) {
+      sessionStorage.removeItem("onboardingToken");
       router.replace(`/admin/${result.data.id}`);
     } else {
       setError("Une erreur inattendue s'est produite.");

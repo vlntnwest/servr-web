@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { becomeRestaurateur } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
-export default function RegisterRestaurateurPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
@@ -18,23 +20,25 @@ export default function RegisterRestaurateurPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const token = searchParams.get("token");
+    if (token) sessionStorage.setItem("onboardingToken", token);
+  }, [searchParams]);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { role: "RESTAURATEUR" } },
-    });
+    const { error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      router.replace("/admin");
+      return;
     }
+    await becomeRestaurateur();
+    router.replace("/admin/create");
   };
 
   return (
@@ -84,5 +88,13 @@ export default function RegisterRestaurateurPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterRestaurateurPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

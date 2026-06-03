@@ -3,15 +3,8 @@
 import { useEffect, useMemo, useState, use } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { setRestaurantId } from "@/lib/api";
-import OrdersTab from "@/components/admin/orders-tab";
-import StatsTab from "@/components/admin/stats-tab";
-import OpeningHoursTab from "@/components/admin/opening-hours-tab";
-import ProductsTab from "@/components/admin/products-tab";
-import SettingsTab from "@/components/admin/settings-tab";
-import PromoCodesTab from "@/components/admin/promo-codes-tab";
 import { LogOut, Loader2, ChevronDown } from "lucide-react";
+import RestaurantDashboard from "@/components/admin/restaurant-dashboard";
 import type { User } from "@supabase/supabase-js";
 
 interface RestaurantInfo {
@@ -132,10 +125,7 @@ export default function AdminRestaurantPage({
         return;
       }
 
-      // 4. Wire up the global RESTAURANT_ID used by lib/api.ts
-      setRestaurantId(restaurantId);
-
-      // 5. Fetch restaurant names concurrently (for selector)
+      // 4. Fetch restaurant names concurrently (for selector)
       const restaurantDetails = await Promise.all(
         memberIds.map(async (id) => {
           const res = await fetch(`${API_URL}/api/v1/restaurants/${id}`, {
@@ -185,7 +175,7 @@ export default function AdminRestaurantPage({
           <button
             className="p-2 hover:bg-black/5 rounded-full transition-colors"
             onClick={() =>
-              supabase.auth.signOut().then(() => router.push("/login"))
+              supabase.auth.signOut({ scope: "local" }).then(() => router.push("/login"))
             }
             aria-label="Se déconnecter"
           >
@@ -194,39 +184,7 @@ export default function AdminRestaurantPage({
         </div>
       </header>
 
-      <main className="max-w-screen-xl mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold mb-6">Tableau de bord</h1>
-
-        <Tabs defaultValue="orders">
-          <TabsList className="mb-0">
-            <TabsTrigger value="orders">Commandes</TabsTrigger>
-            <TabsTrigger value="stats">Statistiques</TabsTrigger>
-            <TabsTrigger value="products">Produits</TabsTrigger>
-            <TabsTrigger value="hours">Horaires</TabsTrigger>
-            <TabsTrigger value="promos">Codes promo</TabsTrigger>
-            <TabsTrigger value="settings">Paramètres</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="orders">
-            <OrdersTab />
-          </TabsContent>
-          <TabsContent value="stats">
-            <StatsTab />
-          </TabsContent>
-          <TabsContent value="products">
-            <ProductsTab />
-          </TabsContent>
-          <TabsContent value="hours">
-            <OpeningHoursTab />
-          </TabsContent>
-          <TabsContent value="promos">
-            <PromoCodesTab />
-          </TabsContent>
-          <TabsContent value="settings">
-            <SettingsTab />
-          </TabsContent>
-        </Tabs>
-      </main>
+      <RestaurantDashboard restaurantId={restaurantId} />
     </div>
   );
 }

@@ -20,7 +20,15 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 // Static import — module is evaluated once with the env already set
-import { getUserMe, createRestaurant } from "./api";
+import {
+  getUserMe,
+  createRestaurant,
+  getRestaurants,
+  inviteRestaurateur,
+  createStaff,
+  assignCommercial,
+  becomeRestaurateur,
+} from "./api";
 
 describe("getUserMe", () => {
   it("returns user profile on success", async () => {
@@ -118,5 +126,54 @@ describe("createRestaurant", () => {
     });
 
     expect(result).toEqual({ error: "Validation failed" });
+  });
+});
+
+describe("getRestaurants", () => {
+  it("returns scoped list", async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: [{ id: "r1", name: "X" }] }) });
+    const res = await getRestaurants();
+    expect(res).toEqual([{ id: "r1", name: "X" }]);
+    expect(mockFetch.mock.calls.at(-1)![0]).toContain("/api/v1/restaurants");
+  });
+});
+
+describe("inviteRestaurateur", () => {
+  it("POSTs the email", async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ message: "Invitation sent" }) });
+    await inviteRestaurateur("resto@x.fr");
+    const call = mockFetch.mock.calls.at(-1)!;
+    expect(call[0]).toContain("/api/v1/invites/restaurateur");
+    expect(JSON.parse(call[1].body)).toEqual({ email: "resto@x.fr" });
+    expect(call[1].method).toBe("POST");
+  });
+});
+
+describe("createStaff", () => {
+  it("POSTs email and role", async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 201, json: async () => ({ data: { id: "n1", role: "COMMERCIAL" } }) });
+    await createStaff("c@x.fr", "COMMERCIAL");
+    const call = mockFetch.mock.calls.at(-1)!;
+    expect(call[0]).toContain("/api/v1/staff");
+    expect(JSON.parse(call[1].body)).toEqual({ email: "c@x.fr", role: "COMMERCIAL" });
+  });
+});
+
+describe("assignCommercial", () => {
+  it("PATCHes commercialId", async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: {} }) });
+    await assignCommercial("r1", "c2");
+    const call = mockFetch.mock.calls.at(-1)!;
+    expect(call[0]).toContain("/api/v1/restaurants/r1/commercial");
+    expect(JSON.parse(call[1].body)).toEqual({ commercialId: "c2" });
+    expect(call[1].method).toBe("PATCH");
+  });
+});
+
+describe("becomeRestaurateur", () => {
+  it("POSTs to become-restaurateur", async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: { id: "u1", role: "RESTAURATEUR" } }) });
+    await becomeRestaurateur();
+    expect(mockFetch.mock.calls.at(-1)![0]).toContain("/api/v1/user/me/become-restaurateur");
   });
 });
