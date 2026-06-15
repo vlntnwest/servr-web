@@ -47,7 +47,7 @@ export default function StoreOrderTrackingPage() {
   const [order, setOrder] = useState<PublicOrder | null>(null);
   const [, setTick] = useState(0);
 
-  // Polling tant que la demande est en attente
+  // Polling tant que la commande est en attente
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -80,19 +80,23 @@ export default function StoreOrderTrackingPage() {
   const view = {
     AWAITING_ACCEPTANCE: {
       icon: <Clock className="w-14 h-14 text-brand-orange mx-auto mb-5" strokeWidth={1.5} />,
-      title: "Demande envoyée",
-      lines: ["En attente de confirmation du restaurant.", "Vous n'êtes pas encore débité."],
+      title: "Commande lancée",
+      lines: [
+        "En attente de confirmation du restaurant.",
+        "Gardez cette page ouverte pour suivre votre commande.",
+        "Vous n'êtes pas encore débité.",
+      ],
       countdown: countdownLabel(order?.requestExpiresAt ?? null),
     },
     DRAFT: {
       icon: <Clock className="w-14 h-14 text-brand-orange mx-auto mb-5" strokeWidth={1.5} />,
-      title: "Demande envoyée",
+      title: "Commande lancée",
       lines: ["En attente de confirmation du restaurant."],
       countdown: null,
     },
     IN_PROGRESS: {
       icon: <CheckCircle className="w-14 h-14 text-brand-forest mx-auto mb-5" strokeWidth={1.5} />,
-      title: "Demande acceptée 🎉",
+      title: "Commande acceptée 🎉",
       lines: ["Le restaurant prépare votre commande."],
       countdown: null,
     },
@@ -110,13 +114,13 @@ export default function StoreOrderTrackingPage() {
     },
     CANCELLED: {
       icon: <XCircle className="w-14 h-14 text-brand-stone mx-auto mb-5" strokeWidth={1.5} />,
-      title: "Demande refusée",
-      lines: ["Le restaurant n'a pas pu accepter votre demande.", "Vous n'avez pas été débité."],
+      title: "Commande refusée",
+      lines: ["Le restaurant n'a pas pu accepter votre commande.", "Vous n'avez pas été débité."],
       countdown: null,
     },
     EXPIRED: {
       icon: <XCircle className="w-14 h-14 text-brand-stone mx-auto mb-5" strokeWidth={1.5} />,
-      title: "Demande expirée",
+      title: "Commande expirée",
       lines: ["Le restaurant n'a pas répondu à temps.", "Vous n'avez pas été débité."],
       countdown: null,
     },

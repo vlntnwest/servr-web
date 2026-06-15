@@ -220,8 +220,8 @@ export default function CheckoutModal({
 
           <p className="text-caption text-brand-stone leading-relaxed">
             Votre carte sera <span className="font-semibold">pré-autorisée</span> :
-            vous ne serez débité que si le restaurant accepte votre demande. En
-            l&apos;envoyant, vous acceptez nos conditions générales de vente.
+            vous ne serez débité que si le restaurant accepte votre commande. En
+            commandant, vous acceptez nos conditions générales de vente.
           </p>
 
           <Button
@@ -235,7 +235,7 @@ export default function CheckoutModal({
                 Traitement…
               </>
             ) : (
-              `Envoyer la demande · ${total.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}`
+              `Commander · ${total.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}`
             )}
           </Button>
         </form>
