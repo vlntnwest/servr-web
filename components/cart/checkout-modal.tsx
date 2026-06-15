@@ -221,7 +221,7 @@ export default function CheckoutModal({
           <p className="text-caption text-brand-stone leading-relaxed">
             Votre carte sera <span className="font-semibold">pré-autorisée</span> :
             vous ne serez débité que si le restaurant accepte votre demande. En
-            l'envoyant, vous acceptez nos conditions générales de vente.
+            l&apos;envoyant, vous acceptez nos conditions générales de vente.
           </p>
 
           <Button
