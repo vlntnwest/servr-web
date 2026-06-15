@@ -15,7 +15,10 @@ function formatSlotLabel(iso: string): string {
 export default function OrderDate() {
   const { scheduledFor, setScheduledFor } = useCart();
   const restaurantCtx = useOptionalRestaurant();
-  const openingHours: OpeningHour[] = restaurantCtx?.openingHours ?? [];
+  const openingHours = useMemo<OpeningHour[]>(
+    () => restaurantCtx?.openingHours ?? [],
+    [restaurantCtx?.openingHours],
+  );
   const [orderType, setOrderType] = useState<"asap" | "scheduled">("asap");
   const [selectedDay, setSelectedDay] = useState("");
 

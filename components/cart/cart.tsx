@@ -106,7 +106,7 @@ export default function Cart({ onClose }: CartProps) {
           disabled={total < 1 || (isClosed && !scheduledFor)}
           variant="default"
         >
-          Finaliser la commande
+          Commander
         </Button>
         {isClosed && !scheduledFor && (
           <p className="text-center text-body-sm text-destructive mt-2">
