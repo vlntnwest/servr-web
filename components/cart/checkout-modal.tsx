@@ -71,7 +71,7 @@ export default function CheckoutModal({
     if (raw.includes("not found"))
       return "Un article de votre panier est introuvable. Veuillez le retirer et réessayer.";
     if (raw.includes("paiement") || raw.includes("indisponible")) return raw;
-    if (raw.includes("configuré")) return raw;
+    if (raw.includes("commandes en ligne")) return raw;
     return "Une erreur est survenue. Veuillez réessayer.";
   }
 

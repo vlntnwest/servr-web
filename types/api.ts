@@ -75,10 +75,11 @@ export type Restaurant = {
   phone: string;
   email: string | null;
   imageUrl: string | null;
-  stripeAccountId: string | null;
   preparationLevel: PreparationLevel;
   isOpen: boolean;
   isReady: boolean;
+  isPublished: boolean;
+  onboardingStep: number;
   autoOpen: boolean;
   timezone: string;
   createdAt: string;

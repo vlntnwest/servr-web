@@ -99,6 +99,9 @@
   /* Border width */
   --border-width-hairline: 1.5px;
 
+  /* Shadows */
+  --shadow-modal: 0 30px 80px -24px rgb(26 26 26 / 0.4);
+
   /* Spacing */
   --spacing-13: 52px;
 

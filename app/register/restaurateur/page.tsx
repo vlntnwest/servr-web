@@ -4,11 +4,10 @@ import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { becomeRestaurateur } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { AuthBrandPanel } from "@/components/onboarding/screens";
+import { Button, Eyebrow, Field, IconInput } from "@/components/onboarding/ui";
 
 function RegisterForm() {
   const router = useRouter();
@@ -30,61 +29,99 @@ function RegisterForm() {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signUp({ email, password });
-
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setError(error.message);
       setLoading(false);
       return;
     }
-    await becomeRestaurateur();
-    router.replace("/admin/create");
+    // Confirmation email activée côté Supabase : pas de session tant que le
+    // lien n'est pas cliqué — impossible d'activer le rôle restaurateur ici.
+    if (!data.session) {
+      setError(
+        "Confirmez votre adresse email via le lien qui vient de vous être envoyé, puis connectez-vous.",
+      );
+      setLoading(false);
+      return;
+    }
+    const res = await becomeRestaurateur();
+    if (res.error) {
+      setError(res.error);
+      setLoading(false);
+      return;
+    }
+    router.replace("/admin/onboarding");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="bg-white border border-brand-border rounded-lg p-6">
-          <h1 className="text-xl font-bold mb-4">Créer un compte restaurateur</h1>
+    <div className="min-h-screen flex flex-col bg-brand-cream text-brand-ink font-sans">
+      <div className="flex-1 grid min-h-0 grid-cols-[1fr] min-[900px]:grid-cols-[1.05fr_0.95fr]">
+        <AuthBrandPanel />
 
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                minLength={6}
-              />
-            </div>
+        <div className="flex items-center justify-center p-14">
+          <div className="w-full max-w-[400px]">
+            <Eyebrow>Créer un compte</Eyebrow>
+            <h1 className="font-display text-display-sm tracking-tight mt-2.5 mb-2">
+              Commençons.
+            </h1>
+            <p className="text-brand-stone mb-7">
+              Juste votre email et un mot de passe. Le reste vient après.
+            </p>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            <form onSubmit={handleRegister}>
+              <Field label="Email">
+                <IconInput
+                  icon={<Mail size={18} />}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="vous@restaurant.fr"
+                  autoComplete="email"
+                  required
+                />
+              </Field>
+              <Field label="Mot de passe">
+                <IconInput
+                  icon={<Lock size={18} />}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="8 caractères minimum"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </Field>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Créer un compte"}
-            </Button>
-          </form>
+              {error && (
+                <p className="text-brand-maroon text-[14px]">{error}</p>
+              )}
 
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Déjà un compte ?{" "}
-            <Link href="/login" className="underline">
-              Se connecter
-            </Link>
-          </p>
+              <Button size="lg" block className="mt-2" disabled={loading}>
+                {loading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    Créer mon compte <ArrowRight size={18} />
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <p className="text-brand-stone text-center mt-[18px] text-[13px]">
+              Déjà un compte ?{" "}
+              <Link
+                href="/login"
+                className="text-brand-orange font-semibold"
+              >
+                Se connecter
+              </Link>
+            </p>
+            <p className="text-brand-stone text-center mt-[22px] text-[12px] leading-[1.5]">
+              En continuant, vous acceptez les conditions d&apos;utilisation et
+              la politique de confidentialité.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -93,7 +130,13 @@ function RegisterForm() {
 
 export default function RegisterRestaurateurPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      }
+    >
       <RegisterForm />
     </Suspense>
   );

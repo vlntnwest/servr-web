@@ -10,6 +10,7 @@ import type { User } from "@supabase/supabase-js";
 interface RestaurantInfo {
   id: string;
   name: string;
+  isPublished?: boolean;
 }
 
 // ── Restaurant selector ───────────────────────────────────────────────────────
@@ -135,6 +136,15 @@ export default function AdminRestaurantPage({
           return (json.data as RestaurantInfo) ?? { id, name: id };
         }),
       );
+
+      // Tant que l'établissement n'est pas publié, l'unique parcours est le wizard
+      // d'onboarding (avec sa checklist de reprise) — pas de faux tableau de bord.
+      const isPublished =
+        restaurantDetails.find((r) => r.id === restaurantId)?.isPublished ?? true;
+      if (!isPublished) {
+        router.replace("/admin/onboarding");
+        return;
+      }
 
       setRestaurants(restaurantDetails);
       setLoading(false);

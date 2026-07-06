@@ -75,7 +75,6 @@ describe("createRestaurant", () => {
           phone: "0612345678",
           email: null,
           imageUrl: null,
-          stripeAccountId: null,
           preparationLevel: "EASY",
           timezone: "Europe/Paris",
           createdAt: "2026-05-12T00:00:00.000Z",

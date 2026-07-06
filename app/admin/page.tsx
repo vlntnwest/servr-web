@@ -42,9 +42,9 @@ export default function AdminRedirectPage() {
           }
         }
 
-        router.replace("/admin/create");
+        router.replace("/admin/onboarding");
       } catch {
-        router.replace("/admin/create");
+        router.replace("/admin/onboarding");
       }
     };
 

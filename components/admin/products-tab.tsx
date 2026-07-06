@@ -28,7 +28,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetClose,
 } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -56,7 +55,7 @@ import OptionsTab, { GroupDialog } from "@/components/admin/options-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type FlatProduct = Product & { categorieId: string; categorieName: string };
+export type FlatProduct = Product & { categorieId: string; categorieName: string };
 
 type ProductForm = {
   name: string;
@@ -606,7 +605,7 @@ function SortableOptionGroupItem({
 
 // ─── Product Sheet ────────────────────────────────────────────────────────────
 
-function ProductSheet({
+export function ProductSheet({
   open,
   onClose,
   product,
@@ -615,6 +614,8 @@ function ProductSheet({
   onSaved,
   onError,
   onRefreshGroups,
+  defaultCategorieId,
+  presentation = "sheet",
 }: {
   open: boolean;
   onClose: () => void;
@@ -624,6 +625,8 @@ function ProductSheet({
   onSaved: () => void;
   onError: (msg: string) => void;
   onRefreshGroups: () => Promise<void>;
+  defaultCategorieId?: string;
+  presentation?: "sheet" | "modal";
 }) {
   const [form, setForm] = useState<ProductForm>(EMPTY_PRODUCT_FORM);
   const [errors, setErrors] = useState<
@@ -667,14 +670,14 @@ function ProductSheet({
           optionGroupIds: product.optionGroups.map((og) => og.id),
         });
       } else {
-        setForm(EMPTY_PRODUCT_FORM);
+        setForm({ ...EMPTY_PRODUCT_FORM, categorieId: defaultCategorieId ?? "" });
       }
       setErrors({});
       setTagInput("");
       setExpandedGroups(new Set());
       setAddingChoiceFor(null);
     }
-  }, [open, product]);
+  }, [open, product, defaultCategorieId]);
 
   const setField = <K extends keyof ProductForm>(
     key: K,
@@ -814,20 +817,9 @@ function ProductSheet({
     });
   };
 
-  return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent
-        side="right"
-        className="sm:max-w-xl w-full flex flex-col p-0"
-        hideCloseButton
-      >
-        <SheetHeader className="px-6 py-4">
-          <SheetTitle>
-            {product ? "Modifier le produit" : "Ajouter un produit"}
-          </SheetTitle>
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+  const bodyAndFooter = (
+    <>
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
           {/* Image upload */}
           <div>
             <label className="block text-xs font-medium text-foreground/70 mb-1.5">
@@ -1245,16 +1237,14 @@ function ProductSheet({
 
         {/* Footer */}
         <div className="border-t border-border px-6 py-4 flex gap-2">
-          <SheetClose asChild>
-            <Button
-              variant="outline"
-              className="flex-1"
-              disabled={submitting}
-              onClick={onClose}
-            >
-              Annuler
-            </Button>
-          </SheetClose>
+          <Button
+            variant="outline"
+            className="flex-1"
+            disabled={submitting}
+            onClick={onClose}
+          >
+            Annuler
+          </Button>
           <Button
             className="flex-1"
             onClick={handleSubmit}
@@ -1264,6 +1254,35 @@ function ProductSheet({
             {product ? "Enregistrer" : "Créer"}
           </Button>
         </div>
+    </>
+  );
+
+  const title = product ? "Modifier le produit" : "Ajouter un produit";
+
+  if (presentation === "modal") {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="sm:max-w-xl w-full p-0 gap-0 flex flex-col max-h-[90vh]">
+          <DialogHeader className="px-6 py-4 border-b border-border">
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+          {bodyAndFooter}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent
+        side="right"
+        className="sm:max-w-xl w-full flex flex-col p-0"
+        hideCloseButton
+      >
+        <SheetHeader className="px-6 py-4">
+          <SheetTitle>{title}</SheetTitle>
+        </SheetHeader>
+        {bodyAndFooter}
       </SheetContent>
     </Sheet>
   );
