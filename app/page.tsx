@@ -62,7 +62,7 @@ export default function HomePage() {
               Connexion
             </Link>
             <Link
-              href="/register"
+              href="/register/restaurateur"
               className="text-sm font-medium bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
             >
               Commencer
@@ -83,7 +83,7 @@ export default function HomePage() {
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">
             <Link
-              href="/register"
+              href="/register/restaurateur"
               className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors"
             >
               Créer mon restaurant
@@ -132,7 +132,7 @@ export default function HomePage() {
             des commandes en quelques minutes.
           </p>
           <Link
-            href="/register"
+            href="/register/restaurateur"
             className="inline-block bg-primary text-white px-8 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors"
           >
             Commencer gratuitement

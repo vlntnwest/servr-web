@@ -333,6 +333,29 @@ export async function updateRestaurant(
   });
 }
 
+// ── Onboarding ───────────────────────────────────────────────────────────────
+
+export async function updateOnboardingStep(
+  step: number,
+): Promise<{ data?: { id: string; onboardingStep: number }; error?: string }> {
+  const result = await apiFetch<{ id: string; onboardingStep: number }>(
+    `/restaurants/${RESTAURANT_ID}/onboarding-step`,
+    { method: "PATCH", body: JSON.stringify({ onboardingStep: step }) },
+  );
+  return "data" in result ? { data: result.data } : { error: result.error };
+}
+
+export async function publishRestaurant(): Promise<{
+  data?: Restaurant;
+  error?: string;
+}> {
+  const result = await apiFetch<Restaurant>(
+    `/restaurants/${RESTAURANT_ID}/publish`,
+    { method: "PATCH" },
+  );
+  return "data" in result ? { data: result.data } : { error: result.error };
+}
+
 export async function createRestaurant(payload: {
   name: string;
   address: string;
@@ -474,6 +497,26 @@ export async function deleteCategory(
   const result = await apiFetch<{ message: string }>(
     `/menu/restaurants/${RESTAURANT_ID}/categories/${categorieId}`,
     { method: "DELETE" },
+  );
+  return "error" in result ? { error: result.error } : {};
+}
+
+export async function reorderCategories(
+  orderedIds: string[],
+): Promise<{ error?: string }> {
+  const result = await apiFetch<{ message: string }>(
+    `/menu/restaurants/${RESTAURANT_ID}/categories/reorder`,
+    { method: "PUT", body: JSON.stringify({ orderedIds }) },
+  );
+  return "error" in result ? { error: result.error } : {};
+}
+
+export async function reorderProducts(
+  orderedIds: string[],
+): Promise<{ error?: string }> {
+  const result = await apiFetch<{ message: string }>(
+    `/menu/restaurants/${RESTAURANT_ID}/products/reorder`,
+    { method: "PUT", body: JSON.stringify({ orderedIds }) },
   );
   return "error" in result ? { error: result.error } : {};
 }
