@@ -7,6 +7,7 @@ import {
   BarChart3,
   Zap,
 } from "lucide-react";
+import { HomeNav } from "@/components/home/home-nav";
 
 const FEATURES = [
   {
@@ -55,18 +56,7 @@ export default function HomePage() {
         <div className="max-w-screen-xl mx-auto px-4 h-16 flex items-center justify-between">
           <span className="text-xl font-bold text-primary">My Spots</span>
           <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-muted-foreground hover:text-black transition-colors"
-            >
-              Connexion
-            </Link>
-            <Link
-              href="/register/restaurateur"
-              className="text-sm font-medium bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Commencer
-            </Link>
+            <HomeNav />
           </div>
         </div>
       </header>
@@ -89,7 +79,7 @@ export default function HomePage() {
               Créer mon restaurant
             </Link>
             <Link
-              href="/login"
+              href="/login?redirect=/admin"
               className="border border-border px-6 py-3 rounded-lg font-medium hover:bg-muted transition-colors"
             >
               Se connecter
