@@ -88,6 +88,12 @@ function LoginForm() {
       </form>
 
       <p className="text-center text-sm text-muted-foreground mt-4">
+        <Link href="/forgot-password" className="underline">
+          Mot de passe oublié ?
+        </Link>
+      </p>
+
+      <p className="text-center text-sm text-muted-foreground mt-4">
         Pas encore de compte ?{" "}
         <Link
           href={`/register${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`}
