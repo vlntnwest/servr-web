@@ -89,7 +89,7 @@ export function previewCategoriesFromMenu(menu: Category[]): PreviewCategory[] {
         .map((p) => ({
           id: p.id,
           name: p.name,
-          desc: p.description,
+          desc: p.description ?? undefined,
           price: parseFloat(p.price),
           bg: p.imageUrl
             ? `center/cover no-repeat url(${p.imageUrl})`

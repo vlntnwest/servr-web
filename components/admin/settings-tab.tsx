@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type StripeStatus = {
@@ -33,6 +34,134 @@ type StripeStatus = {
   chargesEnabled?: boolean;
   detailsSubmitted?: boolean;
 };
+
+// ── Legal / billing info section (SIRET + n° TVA, affichés sur les tickets) ──
+
+function RestaurantLegalSection() {
+  const [siret, setSiret] = useState("");
+  const [vatNumber, setVatNumber] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    // getRestaurant() rejette si le réseau tombe ou si la réponse n'est pas du
+    // JSON (page d'erreur 500) : sans catch, la section resterait bloquée sur
+    // son spinner.
+    const load = async () => {
+      try {
+        const r = await getRestaurant();
+        if (r) {
+          setSiret(r.siret ?? "");
+          setVatNumber(r.vatNumber ?? "");
+        }
+      } catch {
+        setError("Impossible de charger les informations du restaurant.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleSave = async () => {
+    setError(null);
+    setSuccess(false);
+    const cleanSiret = siret.replace(/\s/g, "");
+    const cleanVat = vatNumber.replace(/\s/g, "").toUpperCase();
+    if (cleanSiret && !/^\d{14}$/.test(cleanSiret)) {
+      setError("Le SIRET doit comporter 14 chiffres.");
+      return;
+    }
+    if (cleanVat && !/^[A-Z]{2}[0-9A-Z]{2,13}$/.test(cleanVat)) {
+      setError("N° de TVA invalide (ex. FR12345678901).");
+      return;
+    }
+    setSaving(true);
+    const result = await updateRestaurant({
+      siret: cleanSiret || null,
+      vatNumber: cleanVat || null,
+    });
+    setSaving(false);
+    if ("error" in result) {
+      setError(result.error);
+    } else {
+      setSiret(cleanSiret);
+      setVatNumber(cleanVat);
+      setSuccess(true);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-6 max-w-xl border-b border-black/10 mb-6">
+      <h2 className="text-lg font-semibold mb-1">Informations légales</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        SIRET et n° de TVA intracommunautaire — affichés sur les tickets de
+        caisse envoyés à vos clients.
+      </p>
+
+      {error && (
+        <div className="flex items-center gap-2 text-destructive text-sm mb-3">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="flex items-center gap-2 text-brand-forest text-sm mb-3">
+          <CheckCircle className="w-4 h-4 shrink-0" />
+          Informations mises à jour.
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div>
+          <label
+            htmlFor="restaurant-siret"
+            className="block text-xs font-medium text-foreground/70 mb-1.5"
+          >
+            SIRET
+          </label>
+          <Input
+            id="restaurant-siret"
+            value={siret}
+            onChange={(e) => setSiret(e.target.value)}
+            placeholder="123 456 789 00012"
+            maxLength={17}
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="restaurant-vat-number"
+            className="block text-xs font-medium text-foreground/70 mb-1.5"
+          >
+            N° TVA intracommunautaire
+          </label>
+          <Input
+            id="restaurant-vat-number"
+            value={vatNumber}
+            onChange={(e) => setVatNumber(e.target.value)}
+            placeholder="FR12345678901"
+            maxLength={20}
+          />
+        </div>
+      </div>
+
+      <Button onClick={handleSave} disabled={saving}>
+        {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+        Enregistrer
+      </Button>
+    </div>
+  );
+}
 
 // ── Restaurant image section ──────────────────────────────────────────────────
 
@@ -334,6 +463,7 @@ export default function SettingsTab() {
   return (
     <div>
       <RestaurantImageSection />
+      <RestaurantLegalSection />
 
       <div className="py-6 max-w-xl">
         <h2 className="text-lg font-semibold mb-1">Paiements par carte</h2>

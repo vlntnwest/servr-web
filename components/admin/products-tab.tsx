@@ -55,13 +55,17 @@ import OptionsTab, { GroupDialog } from "@/components/admin/options-tab";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type FlatProduct = Product & { categorieId: string; categorieName: string };
+export type FlatProduct = Product & {
+  categorieId: string;
+  categorieName: string;
+};
 
 type ProductForm = {
   name: string;
   description: string;
   imageUrl: string;
   price: string;
+  vatRate: string;
   tags: string[];
   discount: string;
   isAvailable: boolean;
@@ -70,6 +74,13 @@ type ProductForm = {
   optionGroupIds: string[];
 };
 
+// Taux de TVA français applicables en restauration (prix saisis TTC)
+const VAT_RATES = [
+  { value: "5.5", label: "5,5 %" },
+  { value: "10", label: "10 %" },
+  { value: "20", label: "20 %" },
+];
+
 type Notification = { type: "success" | "error"; message: string } | null;
 
 const EMPTY_PRODUCT_FORM: ProductForm = {
@@ -77,6 +88,7 @@ const EMPTY_PRODUCT_FORM: ProductForm = {
   description: "",
   imageUrl: "",
   price: "",
+  vatRate: "10",
   tags: [],
   discount: "0",
   isAvailable: true,
@@ -97,13 +109,10 @@ export default function ProductsTab() {
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<Notification>(null);
 
-  const notify = useCallback(
-    (type: "success" | "error", message: string) => {
-      setNotification({ type, message });
-      setTimeout(() => setNotification(null), 3500);
-    },
-    [],
-  );
+  const notify = useCallback((type: "success" | "error", message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3500);
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -264,10 +273,7 @@ function ProductsView({
   const handleSaved = () => {
     setSheetOpen(false);
     onRefresh();
-    onNotify(
-      "success",
-      editingProduct ? "Produit mis à jour" : "Produit créé",
-    );
+    onNotify("success", editingProduct ? "Produit mis à jour" : "Produit créé");
   };
 
   if (loading) {
@@ -291,7 +297,7 @@ function ProductsView({
             placeholder="Rechercher un produit..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 h-10 rounded-sm border border-border bg-white text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-full pl-9 pr-3 h-10 rounded-sm border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           />
         </div>
         <div className="flex gap-1 p-1 bg-muted rounded-lg shrink-0">
@@ -449,9 +455,7 @@ function ProductsView({
                 onClick={handleDelete}
                 disabled={deleting}
               >
-                {deleting && (
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                )}
+                {deleting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
                 Supprimer
               </Button>
             </div>
@@ -548,12 +552,11 @@ function SortableOptionGroupItem({
 
       {isExpanded && (
         <div className="border-t border-border bg-muted/50">
-          {group.optionChoices.length === 0 &&
-            addingChoiceFor !== group.id && (
-              <p className="text-xs text-muted-foreground px-8 py-2.5 italic">
-                Aucun choix pour l&apos;instant
-              </p>
-            )}
+          {group.optionChoices.length === 0 && addingChoiceFor !== group.id && (
+            <p className="text-xs text-muted-foreground px-8 py-2.5 italic">
+              Aucun choix pour l&apos;instant
+            </p>
+          )}
           {[...group.optionChoices]
             .sort((a, b) => a.displayOrder - b.displayOrder)
             .map((choice) => (
@@ -636,6 +639,12 @@ export function ProductSheet({
   const [tagInput, setTagInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Images retirées dans le formulaire : supprimées du stockage seulement à
+  // l'enregistrement, sinon annuler la fiche détruirait l'image en ligne.
+  const [pendingImageDeletes, setPendingImageDeletes] = useState<string[]>([]);
+  // La fermeture qui suit un enregistrement réussi ne doit rien nettoyer :
+  // l'image du formulaire appartient désormais au produit.
+  const savedRef = useRef(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [addingChoiceFor, setAddingChoiceFor] = useState<string | null>(null);
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
@@ -646,7 +655,10 @@ export function ProductSheet({
   useEffect(() => {
     if (!addGroupOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (addGroupRef.current && !addGroupRef.current.contains(e.target as Node)) {
+      if (
+        addGroupRef.current &&
+        !addGroupRef.current.contains(e.target as Node)
+      ) {
         setAddGroupOpen(false);
       }
     };
@@ -659,23 +671,31 @@ export function ProductSheet({
       if (product) {
         setForm({
           name: product.name,
-          description: product.description,
-          imageUrl: product.imageUrl,
+          // description / imageUrl / discount sont nullables côté API — un
+          // <Input> contrôlé ne doit jamais recevoir null.
+          description: product.description ?? "",
+          imageUrl: product.imageUrl ?? "",
           price: product.price,
+          vatRate: String(parseFloat(product.vatRate ?? "10")),
           tags: product.tags ?? [],
-          discount: product.discount,
+          discount: product.discount ?? "0",
           isAvailable: product.isAvailable,
           displayOrder: String(product.displayOrder),
           categorieId: product.categorieId,
           optionGroupIds: product.optionGroups.map((og) => og.id),
         });
       } else {
-        setForm({ ...EMPTY_PRODUCT_FORM, categorieId: defaultCategorieId ?? "" });
+        setForm({
+          ...EMPTY_PRODUCT_FORM,
+          categorieId: defaultCategorieId ?? "",
+        });
       }
       setErrors({});
       setTagInput("");
       setExpandedGroups(new Set());
       setAddingChoiceFor(null);
+      setPendingImageDeletes([]);
+      savedRef.current = false;
     }
   }, [open, product, defaultCategorieId]);
 
@@ -721,7 +741,6 @@ export function ProductSheet({
     }
   };
 
-
   const handleSubmit = async () => {
     if (!validate()) return;
     setSubmitting(true);
@@ -730,6 +749,7 @@ export function ProductSheet({
       description: form.description.trim(),
       imageUrl: form.imageUrl.trim(),
       price: parseFloat(form.price),
+      vatRate: parseFloat(form.vatRate),
       tags: form.tags,
       discount: parseFloat(form.discount) || 0,
       isAvailable: form.isAvailable,
@@ -747,15 +767,21 @@ export function ProductSheet({
       return;
     }
 
-    // If editing a product and the image was replaced (not removed via the X button),
-    // delete the old image from storage.
-    const oldImageUrl = product?.imageUrl;
+    // Nettoyage du stockage une fois l'enregistrement réussi : images retirées
+    // via la croix + ancienne image remplacée. Dédupliqué, et on ne supprime
+    // jamais l'URL finalement enregistrée.
     const newImageUrl = form.imageUrl.trim();
-    if (oldImageUrl && newImageUrl && oldImageUrl !== newImageUrl) {
-      deleteImage(oldImageUrl).catch((err) =>
-        console.error("[deleteImage] failed to delete old image:", err),
+    const toDelete = new Set(pendingImageDeletes);
+    if (product?.imageUrl && product.imageUrl !== newImageUrl) {
+      toDelete.add(product.imageUrl);
+    }
+    toDelete.delete(newImageUrl);
+    for (const url of toDelete) {
+      deleteImage(url).catch((err) =>
+        console.error("[deleteImage] failed to delete image:", err),
       );
     }
+    setPendingImageDeletes([]);
 
     // Sync option groups after create/update
     if (result.data) {
@@ -763,7 +789,29 @@ export function ProductSheet({
     }
 
     setSubmitting(false);
+    savedRef.current = true;
     onSaved();
+  };
+
+  // Annulation : les images uploadées pendant la session (l'upload part au
+  // stockage immédiatement) et celles retirées ne sont référencées par aucun
+  // produit → on les nettoie en partant. L'image déjà enregistrée du produit
+  // n'est jamais supprimée ici.
+  const handleClose = () => {
+    if (!savedRef.current) {
+      const saved = product?.imageUrl ?? "";
+      const orphans = new Set(pendingImageDeletes);
+      const current = form.imageUrl.trim();
+      if (current) orphans.add(current);
+      if (saved) orphans.delete(saved);
+      for (const url of orphans) {
+        deleteImage(url).catch((err) =>
+          console.error("[deleteImage] failed to delete orphan image:", err),
+        );
+      }
+      setPendingImageDeletes([]);
+    }
+    onClose();
   };
 
   const handleFile = async (file: File) => {
@@ -795,6 +843,20 @@ export function ProductSheet({
     setTagInput("");
   };
 
+  // Un taux stocké hors liste (import, écriture directe en base) doit rester
+  // sélectionnable : sans option correspondante le select afficherait le
+  // premier taux et l'écraserait silencieusement à l'enregistrement.
+  const vatOptions =
+    form.vatRate && !VAT_RATES.some((r) => r.value === form.vatRate)
+      ? [
+          ...VAT_RATES,
+          {
+            value: form.vatRate,
+            label: `${form.vatRate.replace(".", ",")} %`,
+          },
+        ]
+      : VAT_RATES;
+
   const toggleOptionGroup = (id: string) => {
     const wasChecked = form.optionGroupIds.includes(id);
     setField(
@@ -820,354 +882,377 @@ export function ProductSheet({
   const bodyAndFooter = (
     <>
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-          {/* Image upload */}
-          <div>
-            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-              Image
-            </label>
-            {form.imageUrl ? (
-              <div className="relative w-full h-40 rounded-lg overflow-hidden border border-black/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={form.imageUrl}
-                  alt="Aperçu"
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Always delete from storage when the user removes an image.
-                    // For images that were uploaded this session (differ from saved product),
-                    // delete immediately. For the saved product image, it will also be
-                    // cleaned up here so the user's intent is respected immediately.
-                    if (form.imageUrl) {
-                      deleteImage(form.imageUrl).catch((err) =>
-                        console.error("[deleteImage] request failed:", err),
-                      );
-                    }
-                    setField("imageUrl", "");
-                  }}
-                  className="absolute top-2 right-2 p-1 bg-black/60 rounded-full hover:bg-black/80 transition-colors"
-                  aria-label="Supprimer l'image"
-                >
-                  <X className="w-3.5 h-3.5 text-white" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    "flex flex-col items-center justify-center w-full h-32 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
-                    dragOver
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50 hover:bg-muted",
-                    errors.imageUrl && "border-destructive/80",
-                  )}
-                >
-                  {uploading ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                  ) : (
-                    <>
-                      <Upload className="w-6 h-6 text-muted-foreground mb-1" />
-                      <p className="text-xs text-muted-foreground">
-                        Glissez une image ou{" "}
-                        <span className="text-primary font-medium">
-                          cliquez
-                        </span>
-                      </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        JPEG, PNG, WebP · max 5 MB
-                      </p>
-                    </>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleFile(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </div>
-                <Input
-                  className="mt-2"
-                  placeholder="Ou coller une URL d'image..."
-                  value={form.imageUrl}
-                  onChange={(e) => setField("imageUrl", e.target.value)}
-                  error={!!errors.imageUrl}
-                  helperText={errors.imageUrl}
-                />
-              </>
-            )}
-          </div>
-
-          {/* Name */}
-          <div>
-            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-              Nom <span className="text-destructive">*</span>
-            </label>
-            <Input
-              value={form.name}
-              onChange={(e) => setField("name", e.target.value)}
-              placeholder="Poké Saumon Avocat"
-              maxLength={50}
-              error={!!errors.name}
-              helperText={errors.name}
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-              Description <span className="text-destructive">*</span>
-            </label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setField("description", e.target.value)}
-              placeholder="Décrivez ce produit..."
-              maxLength={255}
-              rows={3}
-              className={cn(
-                "flex w-full rounded-sm border bg-white px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed resize-none",
-                errors.description ? "border-destructive" : "border-border",
-              )}
-            />
-            <div className="flex justify-between mt-1">
-              {errors.description && (
-                <p className="text-xs text-destructive">{errors.description}</p>
-              )}
-              <p className="text-xs text-muted-foreground ml-auto">
-                {form.description.length}/255
-              </p>
-            </div>
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-              Catégorie <span className="text-destructive">*</span>
-            </label>
-            <select
-              value={form.categorieId}
-              onChange={(e) => setField("categorieId", e.target.value)}
-              className={cn(
-                "flex h-10 w-full rounded-sm border bg-white px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary",
-                errors.categorieId ? "border-destructive" : "border-border",
-              )}
-            >
-              <option value="">Sélectionner une catégorie</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-            {errors.categorieId && (
-              <p className="mt-1 text-xs text-destructive">{errors.categorieId}</p>
-            )}
-          </div>
-
-          {/* Price + Discount */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-                Prix (€) <span className="text-destructive">*</span>
-              </label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.price}
-                onChange={(e) => setField("price", e.target.value)}
-                placeholder="12.90"
-                error={!!errors.price}
-                helperText={errors.price}
+        {/* Image upload */}
+        <div>
+          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+            Image
+          </label>
+          {form.imageUrl ? (
+            <div className="relative w-full h-40 rounded-lg overflow-hidden border border-black/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={form.imageUrl}
+                alt="Aperçu"
+                className="w-full h-full object-cover"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-                Remise (€)
-              </label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.discount}
-                onChange={(e) => setField("discount", e.target.value)}
-                placeholder="0"
-                error={!!errors.discount}
-                helperText={errors.discount}
-              />
-            </div>
-          </div>
-
-          {/* Display order + Availability */}
-          <div className="grid grid-cols-2 gap-3 items-end">
-            <div>
-              <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-                Ordre d&apos;affichage
-              </label>
-              <Input
-                type="number"
-                min="0"
-                value={form.displayOrder}
-                onChange={(e) => setField("displayOrder", e.target.value)}
-                placeholder="999"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-                Disponibilité
-              </label>
               <button
                 type="button"
-                onClick={() => setField("isAvailable", !form.isAvailable)}
+                onClick={() => {
+                  // On met en file d'attente : la suppression réelle n'a lieu
+                  // qu'après un enregistrement réussi (annuler ne doit rien
+                  // détruire).
+                  if (form.imageUrl) {
+                    const removed = form.imageUrl;
+                    setPendingImageDeletes((prev) =>
+                      prev.includes(removed) ? prev : [...prev, removed],
+                    );
+                  }
+                  setField("imageUrl", "");
+                }}
+                className="absolute top-2 right-2 p-1 bg-black/60 rounded-full hover:bg-black/80 transition-colors"
+                aria-label="Supprimer l'image"
+              >
+                <X className="w-3.5 h-3.5 text-white" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "flex items-center gap-2 h-10 px-4 w-full rounded-sm border text-sm font-medium transition-colors",
-                  form.isAvailable
-                    ? "border-brand-forest/40 bg-brand-forest/10 text-brand-forest hover:bg-brand-forest/15"
-                    : "border-border bg-white text-muted-foreground hover:bg-muted",
+                  "flex flex-col items-center justify-center w-full h-32 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
+                  dragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50 hover:bg-muted",
+                  errors.imageUrl && "border-destructive/80",
                 )}
               >
-                {form.isAvailable ? (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    Disponible
-                  </>
+                {uploading ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 ) : (
                   <>
-                    <EyeOff className="w-4 h-4" />
-                    Indisponible
+                    <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                    <p className="text-xs text-muted-foreground">
+                      Glissez une image ou{" "}
+                      <span className="text-primary font-medium">cliquez</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      JPEG, PNG, WebP · max 5 MB
+                    </p>
                   </>
                 )}
-              </button>
-            </div>
-          </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+              <Input
+                className="mt-2"
+                placeholder="Ou coller une URL d'image..."
+                value={form.imageUrl}
+                onChange={(e) => setField("imageUrl", e.target.value)}
+                error={!!errors.imageUrl}
+                helperText={errors.imageUrl}
+              />
+            </>
+          )}
+        </div>
 
-          {/* Tags */}
+        {/* Name */}
+        <div>
+          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+            Nom <span className="text-destructive">*</span>
+          </label>
+          <Input
+            value={form.name}
+            onChange={(e) => setField("name", e.target.value)}
+            placeholder="Poké Saumon Avocat"
+            maxLength={50}
+            error={!!errors.name}
+            helperText={errors.name}
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+            Description <span className="text-destructive">*</span>
+          </label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setField("description", e.target.value)}
+            placeholder="Décrivez ce produit..."
+            maxLength={255}
+            rows={3}
+            className={cn(
+              "flex w-full rounded-sm border px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed resize-none",
+              errors.description ? "border-destructive" : "border-border",
+            )}
+          />
+          <div className="flex justify-between mt-1">
+            {errors.description && (
+              <p className="text-xs text-destructive">{errors.description}</p>
+            )}
+            <p className="text-xs text-muted-foreground ml-auto">
+              {form.description.length}/255
+            </p>
+          </div>
+        </div>
+
+        {/* Category */}
+        <div>
+          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+            Catégorie <span className="text-destructive">*</span>
+          </label>
+          <select
+            value={form.categorieId}
+            onChange={(e) => setField("categorieId", e.target.value)}
+            className={cn(
+              "flex h-10 w-full rounded-sm border px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary",
+              errors.categorieId ? "border-destructive" : "border-border",
+            )}
+          >
+            <option value="">Sélectionner une catégorie</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+          {errors.categorieId && (
+            <p className="mt-1 text-xs text-destructive">
+              {errors.categorieId}
+            </p>
+          )}
+        </div>
+
+        {/* Price + Discount */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-foreground/70 mb-1.5">
-              Tags
+              Prix (€) <span className="text-destructive">*</span>
             </label>
-            <div className="flex gap-2">
-              <Input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    addTag();
-                  }
-                }}
-                placeholder="Ex: végan, bestseller..."
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addTag}
-                className="shrink-0 h-10 px-3"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            {form.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {form.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setField(
-                          "tags",
-                          form.tags.filter((t) => t !== tag),
-                        )
-                      }
-                      className="hover:opacity-70 transition-opacity"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.price}
+              onChange={(e) => setField("price", e.target.value)}
+              placeholder="12.90"
+              error={!!errors.price}
+              helperText={errors.price}
+            />
           </div>
-
-          {/* Option Groups */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-foreground/70">
-                Groupes d&apos;options
-              </label>
-              <button
-                type="button"
-                onClick={() => setNewGroupDialogOpen(true)}
-                className="flex items-center gap-1 text-xs text-primary font-medium hover:opacity-80 transition-opacity"
-              >
-                <Plus className="w-3 h-3" />
-                Nouveau groupe
-              </button>
-            </div>
+            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+              Remise (€)
+            </label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.discount}
+              onChange={(e) => setField("discount", e.target.value)}
+              placeholder="0"
+              error={!!errors.discount}
+              helperText={errors.discount}
+            />
+          </div>
+        </div>
 
-             {/* Add group dropdown */}
-            {(() => {
-              const available = optionGroups.filter(
-                (g) => !form.optionGroupIds.includes(g.id),
-              );
-              if (available.length === 0 && optionGroups.length > 0) return null;
-              return (
-                <div ref={addGroupRef} className="relative mb-2">
+        {/* VAT rate — prix TTC, taux utilisé pour le ticket de caisse */}
+        <div>
+          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+            Taux de TVA
+          </label>
+          <select
+            value={form.vatRate}
+            onChange={(e) => setField("vatRate", e.target.value)}
+            className="flex h-10 w-full rounded-sm border border-border px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {vatOptions.map((rate) => (
+              <option key={rate.value} value={rate.value}>
+                {rate.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Le prix saisi est TTC — la TVA apparaît sur le ticket de caisse.
+          </p>
+        </div>
+
+        {/* Display order + Availability */}
+        <div className="grid grid-cols-2 gap-3 items-end">
+          <div>
+            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+              Ordre d&apos;affichage
+            </label>
+            <Input
+              type="number"
+              min="0"
+              value={form.displayOrder}
+              onChange={(e) => setField("displayOrder", e.target.value)}
+              placeholder="999"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+              Disponibilité
+            </label>
+            <button
+              type="button"
+              onClick={() => setField("isAvailable", !form.isAvailable)}
+              className={cn(
+                "flex items-center gap-2 h-10 px-4 w-full rounded-sm border text-sm font-medium transition-colors",
+                form.isAvailable
+                  ? "border-brand-forest/40 bg-brand-forest/10 text-brand-forest hover:bg-brand-forest/15"
+                  : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {form.isAvailable ? (
+                <>
+                  <Eye className="w-4 h-4" />
+                  Disponible
+                </>
+              ) : (
+                <>
+                  <EyeOff className="w-4 h-4" />
+                  Indisponible
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+            Tags
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === ",") {
+                  e.preventDefault();
+                  addTag();
+                }
+              }}
+              placeholder="Ex: végan, bestseller..."
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addTag}
+              className="shrink-0 h-10 px-3"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+          {form.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {form.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
+                >
+                  {tag}
                   <button
                     type="button"
-                    onClick={() => setAddGroupOpen((o) => !o)}
-                    disabled={available.length === 0}
-                    className="w-full h-9 px-3 text-xs rounded-lg border border-black/10 bg-white text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    onClick={() =>
+                      setField(
+                        "tags",
+                        form.tags.filter((t) => t !== tag),
+                      )
+                    }
+                    className="hover:opacity-70 transition-opacity"
                   >
-                    <Plus className="w-3 h-3 shrink-0" />
-                    {available.length === 0
-                      ? "Aucun groupe disponible"
-                      : "Ajouter un groupe d'options"}
+                    <X className="w-3 h-3" />
                   </button>
-                  {addGroupOpen && available.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-brand-border rounded-lg shadow-lg overflow-hidden">
-                      {available.map((g) => (
-                        <button
-                          key={g.id}
-                          type="button"
-                          onClick={() => {
-                            toggleOptionGroup(g.id);
-                            setAddGroupOpen(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors"
-                        >
-                          <span className="font-medium">{g.name}</span>
-                          <span className="ml-2 text-muted-foreground">
-                            {g.hasMultiple ? "Multiple" : "Unique"} · {g.optionChoices.length} choix
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
-            {/* Selected groups — draggable list */}
-            {form.optionGroupIds.length > 0 && (() => {
+        {/* Option Groups */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-medium text-foreground/70">
+              Groupes d&apos;options
+            </label>
+            <button
+              type="button"
+              onClick={() => setNewGroupDialogOpen(true)}
+              className="flex items-center gap-1 text-xs text-primary font-medium hover:opacity-80 transition-opacity"
+            >
+              <Plus className="w-3 h-3" />
+              Nouveau groupe
+            </button>
+          </div>
+
+          {/* Add group dropdown */}
+          {(() => {
+            const available = optionGroups.filter(
+              (g) => !form.optionGroupIds.includes(g.id),
+            );
+            if (available.length === 0 && optionGroups.length > 0) return null;
+            return (
+              <div ref={addGroupRef} className="relative mb-2">
+                <button
+                  type="button"
+                  onClick={() => setAddGroupOpen((o) => !o)}
+                  disabled={available.length === 0}
+                  className="w-full h-9 px-3 text-xs rounded-lg border border-black/10 text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Plus className="w-3 h-3 shrink-0" />
+                  {available.length === 0
+                    ? "Aucun groupe disponible"
+                    : "Ajouter un groupe d'options"}
+                </button>
+                {addGroupOpen && available.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-50 border border-brand-border rounded-lg shadow-lg overflow-hidden">
+                    {available.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => {
+                          toggleOptionGroup(g.id);
+                          setAddGroupOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-muted transition-colors"
+                      >
+                        <span className="font-medium">{g.name}</span>
+                        <span className="ml-2 text-muted-foreground">
+                          {g.hasMultiple ? "Multiple" : "Unique"} ·{" "}
+                          {g.optionChoices.length} choix
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Selected groups — draggable list */}
+          {form.optionGroupIds.length > 0 &&
+            (() => {
               const selectedGroups = form.optionGroupIds
                 .map((id) => optionGroups.find((g) => g.id === id))
                 .filter(Boolean) as OptionGroup[];
@@ -1176,7 +1261,10 @@ export function ProductSheet({
                   axis="y"
                   values={selectedGroups}
                   onReorder={(newOrder) =>
-                    setField("optionGroupIds", newOrder.map((g) => g.id))
+                    setField(
+                      "optionGroupIds",
+                      newOrder.map((g) => g.id),
+                    )
                   }
                   className="border border-black/10 rounded-lg overflow-hidden mb-2 select-none"
                 >
@@ -1187,7 +1275,13 @@ export function ProductSheet({
                       isExpanded={expandedGroups.has(group.id)}
                       addingChoiceFor={addingChoiceFor}
                       onToggleExpand={() => toggleExpandGroup(group.id)}
-                      onCollapse={() => setExpandedGroups((prev) => { const next = new Set(prev); next.delete(group.id); return next; })}
+                      onCollapse={() =>
+                        setExpandedGroups((prev) => {
+                          const next = new Set(prev);
+                          next.delete(group.id);
+                          return next;
+                        })
+                      }
                       onRemove={() => toggleOptionGroup(group.id)}
                       onStartAddChoice={() => setAddingChoiceFor(group.id)}
                       onCancelAddChoice={() => setAddingChoiceFor(null)}
@@ -1199,61 +1293,57 @@ export function ProductSheet({
               );
             })()}
 
-            {optionGroups.length === 0 && (
-              <div className="text-center py-6 border-2 border-dashed border-black/10 rounded-lg">
-                <p className="text-xs text-muted-foreground">
-                  Aucun groupe d&apos;options
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setNewGroupDialogOpen(true)}
-                  className="mt-2 text-xs text-primary font-medium hover:opacity-80 transition-opacity"
-                >
-                  + Créer un groupe
-                </button>
-              </div>
-            )}
+          {optionGroups.length === 0 && (
+            <div className="text-center py-6 border-2 border-dashed border-black/10 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                Aucun groupe d&apos;options
+              </p>
+              <button
+                type="button"
+                onClick={() => setNewGroupDialogOpen(true)}
+                className="mt-2 text-xs text-primary font-medium hover:opacity-80 transition-opacity"
+              >
+                + Créer un groupe
+              </button>
+            </div>
+          )}
 
-            <GroupDialog
-              open={newGroupDialogOpen}
-              onClose={() => setNewGroupDialogOpen(false)}
-              group={null}
-              nextOrder={optionGroups.length}
-              onSaved={async (_, newGroup) => {
-                setNewGroupDialogOpen(false);
-                await onRefreshGroups();
-                if (newGroup) {
-                  setField("optionGroupIds", [
-                    ...form.optionGroupIds,
-                    newGroup.id,
-                  ]);
-                  setExpandedGroups((prev) => new Set([...prev, newGroup.id]));
-                }
-              }}
-              onError={onError}
-            />
-          </div>
+          <GroupDialog
+            open={newGroupDialogOpen}
+            onClose={() => setNewGroupDialogOpen(false)}
+            group={null}
+            nextOrder={optionGroups.length}
+            onSaved={async (_, newGroup) => {
+              setNewGroupDialogOpen(false);
+              await onRefreshGroups();
+              if (newGroup) {
+                setField("optionGroupIds", [
+                  ...form.optionGroupIds,
+                  newGroup.id,
+                ]);
+                setExpandedGroups((prev) => new Set([...prev, newGroup.id]));
+              }
+            }}
+            onError={onError}
+          />
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="border-t border-border px-6 py-4 flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            disabled={submitting}
-            onClick={onClose}
-          >
-            Annuler
-          </Button>
-          <Button
-            className="flex-1"
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
-            {product ? "Enregistrer" : "Créer"}
-          </Button>
-        </div>
+      {/* Footer */}
+      <div className="border-t border-border px-6 py-4 flex gap-2">
+        <Button
+          variant="outline"
+          className="flex-1"
+          disabled={submitting}
+          onClick={handleClose}
+        >
+          Annuler
+        </Button>
+        <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
+          {submitting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+          {product ? "Enregistrer" : "Créer"}
+        </Button>
+      </div>
     </>
   );
 
@@ -1261,7 +1351,7 @@ export function ProductSheet({
 
   if (presentation === "modal") {
     return (
-      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
         <DialogContent className="sm:max-w-xl w-full p-0 gap-0 flex flex-col max-h-[90vh]">
           <DialogHeader className="px-6 py-4 border-b border-border">
             <DialogTitle>{title}</DialogTitle>
@@ -1273,7 +1363,7 @@ export function ProductSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+    <Sheet open={open} onOpenChange={(o) => !o && handleClose()}>
       <SheetContent
         side="right"
         className="sm:max-w-xl w-full flex flex-col p-0"
@@ -1321,7 +1411,7 @@ function InlineChoiceAddRow({
   };
 
   return (
-    <div className="flex items-center gap-2 px-8 py-2 bg-white border-t border-border">
+    <div className="flex items-center gap-2 px-8 py-2 border-t border-border">
       <input
         type="text"
         autoFocus
