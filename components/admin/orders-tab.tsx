@@ -43,6 +43,17 @@ const FINISHED_STATUSES = "DELIVERED,CANCELLED,EXPIRED";
 // la liste doit vivre sans action de l'utilisateur.
 const ACTIVE_POLL_MS = 15_000;
 
+// Heure de retrait toujours affichée dans le fuseau du restaurant, jamais dans
+// celui du navigateur : un restaurateur en déplacement (ou un poste mal réglé)
+// doit lire l'heure du service.
+function formatScheduledTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  });
+}
+
 type SubView = "En cours" | "Terminées";
 
 export default function OrdersTab() {
@@ -60,6 +71,7 @@ export default function OrdersTab() {
   const [statusChanging, setStatusChanging] = useState<string | null>(null); // orderId being changed
   const [prepLevel, setPrepLevel] = useState<PreparationLevel>("EASY");
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [timezone, setTimezone] = useState("Europe/Paris");
 
   const fetchActive = useCallback(async () => {
     const result = await getOrders(activePage, 20, ACTIVE_STATUSES);
@@ -87,6 +99,7 @@ export default function OrdersTab() {
     getRestaurant().then((r) => {
       if (r?.preparationLevel) setPrepLevel(r.preparationLevel);
       if (r) setIsOpen(r.isOpen);
+      if (r?.timezone) setTimezone(r.timezone);
     });
   }, [fetchAll]);
 
@@ -102,10 +115,14 @@ export default function OrdersTab() {
     if (statusChanging) return; // prevent double-click
     setStatusChanging(orderId);
     try {
-      await updateOrderStatus(orderId, status);
+      const updated = await updateOrderStatus(orderId, status);
+      // Toujours resynchroniser : en cas d'échec (409 si la tablette a agi en
+      // premier, 502 si la capture Stripe échoue), les listes doivent montrer
+      // l'état réel du serveur.
       await Promise.all([fetchActive(), fetchFinished()]);
+      if (!updated) return; // pas de mise à jour optimiste sur un échec
       setSelectedOrder((prev) =>
-        prev?.id === orderId ? { ...prev, status: status as Order["status"] } : prev,
+        prev?.id === orderId ? { ...prev, status: updated.status } : prev,
       );
     } finally {
       setStatusChanging(null);
@@ -264,6 +281,7 @@ export default function OrdersTab() {
                           onOpenDetail={setSelectedOrder}
                           onAction={handleStatusChange}
                           busy={statusChanging === order.id}
+                          timezone={timezone}
                         />
                       ))}
                     </div>
@@ -276,6 +294,7 @@ export default function OrdersTab() {
                         key={order.id}
                         order={order}
                         onOpenDetail={setSelectedOrder}
+                        timezone={timezone}
                       />
                     ))}
                   </div>
@@ -439,10 +458,7 @@ export default function OrdersTab() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Prévu pour</span>
                       <span className="text-brand-yellow font-medium">
-                        {new Date(selectedOrder.scheduledFor).toLocaleTimeString("fr-FR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatScheduledTime(selectedOrder.scheduledFor, timezone)}
                       </span>
                     </div>
                   )}
@@ -541,11 +557,13 @@ function PendingOrderCard({
   onOpenDetail,
   onAction,
   busy,
+  timezone,
 }: {
   order: Order;
   onOpenDetail: (order: Order) => void;
   onAction: (orderId: string, status: string) => void;
   busy: boolean;
+  timezone: string;
 }) {
   const expiresIn = order.requestExpiresAt
     ? Math.max(
@@ -582,11 +600,7 @@ function PendingOrderCard({
 
       {order.scheduledFor && (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-yellow bg-brand-yellow/20 border border-brand-yellow/40 rounded-full px-2 py-0.5 w-fit">
-          Prévu pour{" "}
-          {new Date(order.scheduledFor).toLocaleTimeString("fr-FR", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          Prévu pour {formatScheduledTime(order.scheduledFor, timezone)}
         </span>
       )}
 
@@ -624,9 +638,11 @@ function PendingOrderCard({
 function OrderCard({
   order,
   onOpenDetail,
+  timezone,
 }: {
   order: Order;
   onOpenDetail: (order: Order) => void;
+  timezone: string;
 }) {
   return (
     <button
@@ -653,11 +669,7 @@ function OrderCard({
 
       {order.scheduledFor && (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-yellow bg-brand-yellow/20 border border-brand-yellow/40 rounded-full px-2 py-0.5 w-fit">
-          Prévu pour{" "}
-          {new Date(order.scheduledFor).toLocaleTimeString("fr-FR", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          Prévu pour {formatScheduledTime(order.scheduledFor, timezone)}
         </span>
       )}
     </button>

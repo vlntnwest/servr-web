@@ -46,13 +46,23 @@ function RestaurantLegalSection() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    getRestaurant().then((r) => {
-      if (r) {
-        setSiret(r.siret ?? "");
-        setVatNumber(r.vatNumber ?? "");
+    // getRestaurant() rejette si le réseau tombe ou si la réponse n'est pas du
+    // JSON (page d'erreur 500) : sans catch, la section resterait bloquée sur
+    // son spinner.
+    const load = async () => {
+      try {
+        const r = await getRestaurant();
+        if (r) {
+          setSiret(r.siret ?? "");
+          setVatNumber(r.vatNumber ?? "");
+        }
+      } catch {
+        setError("Impossible de charger les informations du restaurant.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    };
+    load();
   }, []);
 
   const handleSave = async () => {
@@ -114,10 +124,14 @@ function RestaurantLegalSection() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div>
-          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+          <label
+            htmlFor="restaurant-siret"
+            className="block text-xs font-medium text-foreground/70 mb-1.5"
+          >
             SIRET
           </label>
           <Input
+            id="restaurant-siret"
             value={siret}
             onChange={(e) => setSiret(e.target.value)}
             placeholder="123 456 789 00012"
@@ -125,10 +139,14 @@ function RestaurantLegalSection() {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-foreground/70 mb-1.5">
+          <label
+            htmlFor="restaurant-vat-number"
+            className="block text-xs font-medium text-foreground/70 mb-1.5"
+          >
             N° TVA intracommunautaire
           </label>
           <Input
+            id="restaurant-vat-number"
             value={vatNumber}
             onChange={(e) => setVatNumber(e.target.value)}
             placeholder="FR12345678901"

@@ -639,6 +639,9 @@ export function ProductSheet({
   const [tagInput, setTagInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Images retirées dans le formulaire : supprimées du stockage seulement à
+  // l'enregistrement, sinon annuler la fiche détruirait l'image en ligne.
+  const [pendingImageDeletes, setPendingImageDeletes] = useState<string[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [addingChoiceFor, setAddingChoiceFor] = useState<string | null>(null);
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
@@ -688,6 +691,7 @@ export function ProductSheet({
       setTagInput("");
       setExpandedGroups(new Set());
       setAddingChoiceFor(null);
+      setPendingImageDeletes([]);
     }
   }, [open, product, defaultCategorieId]);
 
@@ -759,15 +763,21 @@ export function ProductSheet({
       return;
     }
 
-    // If editing a product and the image was replaced (not removed via the X button),
-    // delete the old image from storage.
-    const oldImageUrl = product?.imageUrl;
+    // Nettoyage du stockage une fois l'enregistrement réussi : images retirées
+    // via la croix + ancienne image remplacée. Dédupliqué, et on ne supprime
+    // jamais l'URL finalement enregistrée.
     const newImageUrl = form.imageUrl.trim();
-    if (oldImageUrl && newImageUrl && oldImageUrl !== newImageUrl) {
-      deleteImage(oldImageUrl).catch((err) =>
-        console.error("[deleteImage] failed to delete old image:", err),
+    const toDelete = new Set(pendingImageDeletes);
+    if (product?.imageUrl && product.imageUrl !== newImageUrl) {
+      toDelete.add(product.imageUrl);
+    }
+    toDelete.delete(newImageUrl);
+    for (const url of toDelete) {
+      deleteImage(url).catch((err) =>
+        console.error("[deleteImage] failed to delete image:", err),
       );
     }
+    setPendingImageDeletes([]);
 
     // Sync option groups after create/update
     if (result.data) {
@@ -806,6 +816,20 @@ export function ProductSheet({
     if (tag && !form.tags.includes(tag)) setField("tags", [...form.tags, tag]);
     setTagInput("");
   };
+
+  // Un taux stocké hors liste (import, écriture directe en base) doit rester
+  // sélectionnable : sans option correspondante le select afficherait le
+  // premier taux et l'écraserait silencieusement à l'enregistrement.
+  const vatOptions =
+    form.vatRate && !VAT_RATES.some((r) => r.value === form.vatRate)
+      ? [
+          ...VAT_RATES,
+          {
+            value: form.vatRate,
+            label: `${form.vatRate.replace(".", ",")} %`,
+          },
+        ]
+      : VAT_RATES;
 
   const toggleOptionGroup = (id: string) => {
     const wasChecked = form.optionGroupIds.includes(id);
@@ -848,13 +872,13 @@ export function ProductSheet({
               <button
                 type="button"
                 onClick={() => {
-                  // Always delete from storage when the user removes an image.
-                  // For images that were uploaded this session (differ from saved product),
-                  // delete immediately. For the saved product image, it will also be
-                  // cleaned up here so the user's intent is respected immediately.
+                  // On met en file d'attente : la suppression réelle n'a lieu
+                  // qu'après un enregistrement réussi (annuler ne doit rien
+                  // détruire).
                   if (form.imageUrl) {
-                    deleteImage(form.imageUrl).catch((err) =>
-                      console.error("[deleteImage] request failed:", err),
+                    const removed = form.imageUrl;
+                    setPendingImageDeletes((prev) =>
+                      prev.includes(removed) ? prev : [...prev, removed],
                     );
                   }
                   setField("imageUrl", "");
@@ -1033,7 +1057,7 @@ export function ProductSheet({
             onChange={(e) => setField("vatRate", e.target.value)}
             className="flex h-10 w-full rounded-sm border border-border px-3 py-2 text-sm focus-visible:outline-none focus:ring-2 focus:ring-primary"
           >
-            {VAT_RATES.map((rate) => (
+            {vatOptions.map((rate) => (
               <option key={rate.value} value={rate.value}>
                 {rate.label}
               </option>
