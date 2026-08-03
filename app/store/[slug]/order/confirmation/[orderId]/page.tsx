@@ -13,7 +13,11 @@ type OrderStatus =
   | "COMPLETED"
   | "DELIVERED"
   | "CANCELLED"
-  | "EXPIRED";
+  | "EXPIRED"
+  | "PAYMENT_FAILED"
+  | "ABANDONED"
+  | "PENDING"
+  | "PENDING_ON_SITE_PAYMENT";
 
 type PublicOrder = {
   id: string;
@@ -77,7 +81,13 @@ export default function StoreOrderTrackingPage() {
   const status: OrderStatus = order?.status ?? "AWAITING_ACCEPTANCE";
   const ref = `#${order?.orderNumber ?? orderId.slice(-8)}`;
 
-  const view = {
+  type StatusView = {
+    icon: React.ReactNode;
+    title: string;
+    lines: string[];
+    countdown: string | null;
+  };
+  const view: StatusView = ({
     AWAITING_ACCEPTANCE: {
       icon: <Clock className="w-14 h-14 text-brand-orange mx-auto mb-5" strokeWidth={1.5} />,
       title: "Commande lancée",
@@ -124,7 +134,26 @@ export default function StoreOrderTrackingPage() {
       lines: ["Le restaurant n'a pas répondu à temps.", "Vous n'avez pas été débité."],
       countdown: null,
     },
-  }[status];
+    PAYMENT_FAILED: {
+      icon: <XCircle className="w-14 h-14 text-brand-stone mx-auto mb-5" strokeWidth={1.5} />,
+      title: "Paiement refusé",
+      lines: ["Le paiement n'a pas abouti.", "Vous n'avez pas été débité — vous pouvez réessayer depuis le menu."],
+      countdown: null,
+    },
+    ABANDONED: {
+      icon: <XCircle className="w-14 h-14 text-brand-stone mx-auto mb-5" strokeWidth={1.5} />,
+      title: "Commande abandonnée",
+      lines: ["La session de paiement a expiré.", "Vous n'avez pas été débité."],
+      countdown: null,
+    },
+  } as Partial<Record<OrderStatus, StatusView>>)[status] ?? {
+    // Filet de sécurité : un statut inconnu (legacy PENDING, futur statut…)
+    // ne doit jamais faire crasher la page.
+    icon: <Clock className="w-14 h-14 text-brand-stone mx-auto mb-5" strokeWidth={1.5} />,
+    title: "Commande en cours",
+    lines: ["Suivez l'avancement de votre commande auprès du restaurant."],
+    countdown: null,
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

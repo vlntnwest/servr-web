@@ -25,11 +25,12 @@ export type Product = {
   id: string;
   restaurantId: string;
   name: string;
-  description: string;
-  imageUrl: string;
+  description: string | null;
+  imageUrl: string | null;
   price: string; // Decimal as string — use parseFloat()
+  vatRate: string; // Decimal as string — 5.5 | 10 | 20
   tags: string[];
-  discount: string;
+  discount: string | null;
   isAvailable: boolean;
   displayOrder: number;
   optionGroups: OptionGroup[];
@@ -75,6 +76,8 @@ export type Restaurant = {
   phone: string;
   email: string | null;
   imageUrl: string | null;
+  siret: string | null;
+  vatNumber: string | null;
   preparationLevel: PreparationLevel;
   isOpen: boolean;
   isReady: boolean;
@@ -103,12 +106,17 @@ export type OrderProduct = {
 };
 
 export type OrderStatus =
+  | "DRAFT"
   | "PENDING"
   | "PENDING_ON_SITE_PAYMENT"
+  | "AWAITING_ACCEPTANCE"
   | "IN_PROGRESS"
   | "COMPLETED"
   | "DELIVERED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "EXPIRED"
+  | "ABANDONED"
+  | "PAYMENT_FAILED";
 
 export type Order = {
   id: string;
@@ -121,6 +129,7 @@ export type Order = {
   totalPrice: string;
   stripePaymentIntentId: string | null;
   scheduledFor: string | null;
+  requestExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
   orderProducts: OrderProduct[];
@@ -198,7 +207,7 @@ export type CartItem = {
   id: string; // unique identifier for this cart entry
   productId: string;
   name: string;
-  imageUrl: string;
+  imageUrl: string | null;
   basePrice: number;
   selectedOptions: {
     optionGroupId: string;

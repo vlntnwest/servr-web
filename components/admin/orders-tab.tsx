@@ -35,8 +35,13 @@ import { Eye } from "lucide-react";
 dayjs.extend(relativeTime);
 dayjs.locale("fr");
 
-const ACTIVE_STATUSES = "PENDING,PENDING_ON_SITE_PAYMENT,IN_PROGRESS,COMPLETED";
-const FINISHED_STATUSES = "DELIVERED,CANCELLED";
+const ACTIVE_STATUSES =
+  "AWAITING_ACCEPTANCE,PENDING,PENDING_ON_SITE_PAYMENT,IN_PROGRESS,COMPLETED";
+const FINISHED_STATUSES = "DELIVERED,CANCELLED,EXPIRED";
+
+// Rafraîchissement silencieux : les demandes de commande expirent en ~10 min,
+// la liste doit vivre sans action de l'utilisateur.
+const ACTIVE_POLL_MS = 15_000;
 
 type SubView = "En cours" | "Terminées";
 
@@ -84,6 +89,14 @@ export default function OrdersTab() {
       if (r) setIsOpen(r.isOpen);
     });
   }, [fetchAll]);
+
+  // Polling des commandes actives (nouvelles demandes à valider, expirations)
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchActive();
+    }, ACTIVE_POLL_MS);
+    return () => clearInterval(id);
+  }, [fetchActive]);
 
   const handleStatusChange = async (orderId: string, status: string) => {
     if (statusChanging) return; // prevent double-click
@@ -223,28 +236,58 @@ export default function OrdersTab() {
             ))}
           </div>
     
-          {subView === "En cours" && (
-              activeOrders.length === 0 ? (
+          {subView === "En cours" && (() => {
+            const pendingOrders = activeOrders.filter(
+              (o) => o.status === "AWAITING_ACCEPTANCE",
+            );
+            const otherOrders = activeOrders.filter(
+              (o) => o.status !== "AWAITING_ACCEPTANCE",
+            );
+            return activeOrders.length === 0 ? (
               <p className="text-muted-foreground text-center py-12">Aucune commande en cours</p>
             ) : (
               <div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {activeOrders.map((order) => (
-                    <OrderCard
-                      key={order.id}
-                      order={order}
-                      onOpenDetail={setSelectedOrder}
-                    />
-                  ))}
-                </div>
+                {pendingOrders.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-brand-orange mb-3">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-orange opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-orange" />
+                      </span>
+                      En attente de validation ({pendingOrders.length})
+                    </h3>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {pendingOrders.map((order) => (
+                        <PendingOrderCard
+                          key={order.id}
+                          order={order}
+                          onOpenDetail={setSelectedOrder}
+                          onAction={handleStatusChange}
+                          busy={statusChanging === order.id}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {otherOrders.length > 0 && (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {otherOrders.map((order) => (
+                      <OrderCard
+                        key={order.id}
+                        order={order}
+                        onOpenDetail={setSelectedOrder}
+                      />
+                    ))}
+                  </div>
+                )}
                 <Pagination
                   page={activePage}
                   totalPages={activeTotalPages}
                   onPageChange={setActivePage}
                 />
               </div>
-            )
-          )}
+            );
+          })()}
 
           {subView === "Terminées" && ( 
             finishedOrders.length === 0 ? (
@@ -487,6 +530,92 @@ export default function OrdersTab() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// ── Pending validation card ─────────────────────────────────────────────────────
+// Le paiement est pré-autorisé : Accepter capture, Refuser annule (void).
+
+function PendingOrderCard({
+  order,
+  onOpenDetail,
+  onAction,
+  busy,
+}: {
+  order: Order;
+  onOpenDetail: (order: Order) => void;
+  onAction: (orderId: string, status: string) => void;
+  busy: boolean;
+}) {
+  const expiresIn = order.requestExpiresAt
+    ? Math.max(
+        0,
+        Math.ceil((new Date(order.requestExpiresAt).getTime() - Date.now()) / 60000),
+      )
+    : null;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className="w-full text-left bg-white border-2 border-brand-orange/50 rounded-lg p-4 flex flex-col gap-2 hover:border-brand-orange transition-colors cursor-pointer"
+      onClick={() => onOpenDetail(order)}
+      onKeyDown={(e) => e.key === "Enter" && onOpenDetail(order)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-bold text-sm">{order.fullName ?? "Client anonyme"}</p>
+        {expiresIn !== null && (
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap bg-orange-100 text-orange-800">
+            {expiresIn > 0 ? `Expire dans ${expiresIn} min` : "Expiration imminente"}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-sm">
+        {order.orderNumber ? (
+          <span className="text-xs text-muted-foreground">#{order.orderNumber}</span>
+        ) : (
+          <span />
+        )}
+        <span className="font-semibold">{formatEuros(parseFloat(order.totalPrice))}</span>
+      </div>
+
+      {order.scheduledFor && (
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-yellow bg-brand-yellow/20 border border-brand-yellow/40 rounded-full px-2 py-0.5 w-fit">
+          Prévu pour{" "}
+          {new Date(order.scheduledFor).toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </span>
+      )}
+
+      <div className="flex gap-2 mt-1">
+        <Button
+          size="sm"
+          className="flex-1"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAction(order.id, "IN_PROGRESS");
+          }}
+        >
+          {busy ? "En cours…" : "Accepter"}
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="flex-1"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAction(order.id, "CANCELLED");
+          }}
+        >
+          Refuser
+        </Button>
+      </div>
+    </div>
   );
 }
 

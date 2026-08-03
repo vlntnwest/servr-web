@@ -323,7 +323,15 @@ export async function updateRestaurant(
   data: Partial<
     Pick<
       Restaurant,
-      "name" | "address" | "zipCode" | "city" | "phone" | "email" | "imageUrl"
+      | "name"
+      | "address"
+      | "zipCode"
+      | "city"
+      | "phone"
+      | "email"
+      | "imageUrl"
+      | "siret"
+      | "vatNumber"
     >
   >,
 ): Promise<{ data: Restaurant } | { error: string }> {
@@ -420,6 +428,7 @@ export async function createProduct(payload: {
   description: string;
   imageUrl: string;
   price: number;
+  vatRate?: number;
   tags?: string[];
   discount?: number;
   isAvailable?: boolean;
@@ -440,6 +449,7 @@ export async function updateProduct(
     description: string;
     imageUrl: string;
     price: number;
+    vatRate: number;
     tags: string[];
     discount: number;
     isAvailable: boolean;
