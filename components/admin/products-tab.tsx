@@ -642,6 +642,9 @@ export function ProductSheet({
   // Images retirées dans le formulaire : supprimées du stockage seulement à
   // l'enregistrement, sinon annuler la fiche détruirait l'image en ligne.
   const [pendingImageDeletes, setPendingImageDeletes] = useState<string[]>([]);
+  // La fermeture qui suit un enregistrement réussi ne doit rien nettoyer :
+  // l'image du formulaire appartient désormais au produit.
+  const savedRef = useRef(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [addingChoiceFor, setAddingChoiceFor] = useState<string | null>(null);
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
@@ -692,6 +695,7 @@ export function ProductSheet({
       setExpandedGroups(new Set());
       setAddingChoiceFor(null);
       setPendingImageDeletes([]);
+      savedRef.current = false;
     }
   }, [open, product, defaultCategorieId]);
 
@@ -785,7 +789,29 @@ export function ProductSheet({
     }
 
     setSubmitting(false);
+    savedRef.current = true;
     onSaved();
+  };
+
+  // Annulation : les images uploadées pendant la session (l'upload part au
+  // stockage immédiatement) et celles retirées ne sont référencées par aucun
+  // produit → on les nettoie en partant. L'image déjà enregistrée du produit
+  // n'est jamais supprimée ici.
+  const handleClose = () => {
+    if (!savedRef.current) {
+      const saved = product?.imageUrl ?? "";
+      const orphans = new Set(pendingImageDeletes);
+      const current = form.imageUrl.trim();
+      if (current) orphans.add(current);
+      if (saved) orphans.delete(saved);
+      for (const url of orphans) {
+        deleteImage(url).catch((err) =>
+          console.error("[deleteImage] failed to delete orphan image:", err),
+        );
+      }
+      setPendingImageDeletes([]);
+    }
+    onClose();
   };
 
   const handleFile = async (file: File) => {
@@ -1309,7 +1335,7 @@ export function ProductSheet({
           variant="outline"
           className="flex-1"
           disabled={submitting}
-          onClick={onClose}
+          onClick={handleClose}
         >
           Annuler
         </Button>
@@ -1325,7 +1351,7 @@ export function ProductSheet({
 
   if (presentation === "modal") {
     return (
-      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
         <DialogContent className="sm:max-w-xl w-full p-0 gap-0 flex flex-col max-h-[90vh]">
           <DialogHeader className="px-6 py-4 border-b border-border">
             <DialogTitle>{title}</DialogTitle>
@@ -1337,7 +1363,7 @@ export function ProductSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+    <Sheet open={open} onOpenChange={(o) => !o && handleClose()}>
       <SheetContent
         side="right"
         className="sm:max-w-xl w-full flex flex-col p-0"
