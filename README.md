@@ -104,6 +104,8 @@ npm run dev                        # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_URL` | Publique | URL du projet Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publique | Clé anon Supabase (auth navigateur) |
 | `INTERNAL_API_SECRET` | Privée | Secret partagé avec le backend pour les appels serveur internes (en-tête `x-internal-secret`) |
+| `NEXT_PUBLIC_SITE_URL` | Publique | URL publique du site (ex. `https://myspots.fr`), utilisée pour les URLs canoniques et Open Graph. À défaut : `VERCEL_PROJECT_PRODUCTION_URL`, puis `http://localhost:3000` |
+| `NEXT_PUBLIC_ENABLE_INDEXING` | Publique | `true` **uniquement en production** : autorise les robots et rend les pages boutique indexables. Non posée, tout le site reste en `noindex` + `robots.txt` bloquant |
 
 ## 🗂️ Structure des routes (App Router)
 
@@ -145,6 +147,7 @@ servr-web/
 │   ├── api.ts                # client de l'API backend (tous les appels /api/v1)
 │   ├── supabase/             # client.ts (navigateur) + server.ts (SSR, cookies)
 │   ├── utils.ts              # cn(), formatEuros(), totaux panier, libellés/couleurs de statut
+│   ├── seo.ts                # title/meta description auto + JSON-LD des pages boutique
 │   ├── roles.ts              # canAccessBackOffice(), isLeader()
 │   └── redirectUtils.ts      # isSafeRedirect() (anti open-redirect)
 └── types/api.ts              # types du domaine (Restaurant, Order, Product, OptionGroup…)
@@ -191,10 +194,27 @@ restaurants, inviter des restaurateurs et (Leader) administrer le staff.
 - `isSafeRedirect()` empêche les open-redirects.
 - Images servies depuis Supabase Storage / Vercel Blob, optimisées par `next/image`.
 
+## 🔎 SEO des pages boutique
+
+`/store/[slug]` génère ses métadonnées à la volée depuis les données du restaurant (`lib/seo.ts`) :
+
+- **Titre** : `{Nom} — Commander en ligne à {Ville} | My Spots` (≤ 65 caractères).
+- **Meta description** : nom, ville et principales catégories de la carte, tronquée à 160 caractères
+  sur un mot entier ; repli sur l'adresse si la carte est vide.
+- **Canonique + Open Graph/Twitter** : construits sur `NEXT_PUBLIC_SITE_URL`, image = photo du resto.
+- **JSON-LD `schema.org/Restaurant`** injecté dans la page : adresse, téléphone, horaires
+  d'ouverture et sections du menu (rich results Google).
+
+L'indexation est **refusée par défaut**. Le `robots.txt` est généré par `app/robots.ts` et bloque
+tout tant que `NEXT_PUBLIC_ENABLE_INDEXING=true` n'est pas posée ; même sous ce drapeau, seules les
+pages boutique **publiées** (`isPublished`) passent en `index, follow` — `/admin`, `/back-office`,
+`/account`, l'auth et les pages de commande restent en `noindex`.
+
 ## 🧪 Tests
 
 Vitest + jsdom. Les tests vivent à côté du code dans `lib/` (`api.test.ts`, `opening-hours.test.ts`,
-`roles.test.ts`, `redirectUtils.test.ts`). `npm test` pour une passe, `npm run test:watch` en continu.
+`roles.test.ts`, `redirectUtils.test.ts`, `seo.test.ts`). `npm test` pour une passe,
+`npm run test:watch` en continu.
 
 ## 📄 Licence
 
