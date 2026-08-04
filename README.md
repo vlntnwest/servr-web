@@ -226,8 +226,9 @@ liens vers `/admin` ne sont rendus que côté client pour un utilisateur authent
 
 Vitest + jsdom. Les tests vivent à côté du code : `lib/` (`api.test.ts`, `opening-hours.test.ts`,
 `roles.test.ts`, `redirectUtils.test.ts`, `seo.test.ts`) et `app/robots.test.ts` — ce dernier
-verrouille le fait que `/admin`, `/back-office` et `/account` restent interdits aux robots même
-indexation activée. `npm test` pour une passe, `npm run test:watch` en continu.
+verrouille le fait que `/admin`, `/back-office`, `/account` et `/store/*/order/` restent interdits
+aux robots même lorsque l'indexation est activée. `npm test` pour une passe, `npm run test:watch`
+en continu.
 
 ## 📄 Licence
 
