@@ -5,6 +5,7 @@ import { CartProvider } from "@/contexts/cart-context";
 import { UserProvider } from "@/contexts/user-context";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { getSiteUrl } from "@/lib/seo";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -28,8 +29,11 @@ const archivoItalic = Archivo({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: "My Spots - Commander en ligne",
   description: "Commander en ligne",
+  // Par défaut aucune page n'est indexable ; les pages boutique lèvent
+  // explicitement cette restriction via leur propre `generateMetadata`.
   robots: { index: false, follow: false },
 };
 
