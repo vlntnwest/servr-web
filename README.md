@@ -207,14 +207,28 @@ restaurants, inviter des restaurateurs et (Leader) administrer le staff.
 
 L'indexation est **refusée par défaut**. Le `robots.txt` est généré par `app/robots.ts` et bloque
 tout tant que `NEXT_PUBLIC_ENABLE_INDEXING=true` n'est pas posée ; même sous ce drapeau, seules les
-pages boutique **publiées** (`isPublished`) passent en `index, follow` — `/admin`, `/back-office`,
-`/account`, l'auth et les pages de commande restent en `noindex`.
+pages boutique **publiées** (`isPublished`) passent en `index, follow`.
+
+Les espaces privés (`/admin`, `/back-office`, `/account`, `/store/*/order/*`) ne sont **jamais**
+indexables, quel que soit l'environnement. Trois barrières indépendantes :
+
+| Barrière | Où | Couvre |
+| --- | --- | --- |
+| `<meta name="robots" content="noindex, nofollow">` | `robots` du layout racine, appliqué par défaut à toutes les pages | tout le HTML rendu |
+| En-tête `X-Robots-Tag: noindex, nofollow` | `headers()` dans `next.config.ts` | routes dynamiques, réponses non-HTML, redirections — non annulable par un `generateMetadata` de page |
+| `Disallow:` dans le `robots.txt` | `app/robots.ts` | le crawl lui-même |
+
+Seul `/store/[slug]` lève la première barrière, et uniquement si le restaurant est publié. Les
+liens vers `/admin` ne sont rendus que côté client pour un utilisateur authentifié
+(`components/home/home-nav.tsx`) : aucun crawler ne les découvre depuis l'accueil.
 
 ## 🧪 Tests
 
-Vitest + jsdom. Les tests vivent à côté du code dans `lib/` (`api.test.ts`, `opening-hours.test.ts`,
-`roles.test.ts`, `redirectUtils.test.ts`, `seo.test.ts`). `npm test` pour une passe,
-`npm run test:watch` en continu.
+Vitest + jsdom. Les tests vivent à côté du code : `lib/` (`api.test.ts`, `opening-hours.test.ts`,
+`roles.test.ts`, `redirectUtils.test.ts`, `seo.test.ts`) et `app/robots.test.ts` — ce dernier
+verrouille le fait que `/admin`, `/back-office`, `/account` et `/store/*/order/` restent interdits
+aux robots même lorsque l'indexation est activée. `npm test` pour une passe, `npm run test:watch`
+en continu.
 
 ## 📄 Licence
 
